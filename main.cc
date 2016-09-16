@@ -8,27 +8,12 @@
 shaderprogram *sp;
 GLint vattr;
 array_buffer *screenverts;
-GLint resolution_unif, time_unif;
+GLint resolution_unif, time_unif, modelmat_unif, color_unif;
 shader *vs, *fs;
-glm::mat4 projection;
+vertexarray *vao;
 
 void load(screen *s) {
-  // vertexarray vao;
-
   glClearColor(0.85f, 0.f, 1.f, 1);
-
-  // projection = glm::ortho(0.0f, 800.0f, 600.0f, 0.0f, -1.0f, 1.0f);
-
-  std::vector<float> vertices = {
-    -1.0f,  1.0f,
-    -1.0f, -1.0f,
-     1.0f,  1.0f,
-     1.0f,  1.0f,
-    -1.0f, -1.0f,
-     1.0f, -1.0f
-  };
-  screenverts = new array_buffer;
-  screenverts->upload(vertices);
 
   const char *vsrc = _glsl(
     attribute vec2 vertex_pos;
@@ -51,14 +36,43 @@ void load(screen *s) {
   fs = new shader(fsrc, GL_FRAGMENT_SHADER);
   sp = new shaderprogram(*vs, *fs);
 
-  vattr = sp->bind_attrib("position");
+  vattr = sp->bind_attrib("vertex_pos");
   resolution_unif = sp->bind_uniform("iResolution");
+  modelmat_unif = sp->bind_uniform("model");
+  color_unif = sp->bind_uniform("color");
+
+  vao = new vertexarray;
+
+  screenverts = new array_buffer;
+  std::vector<float> vertices = {
+    0.f, 1.f,
+    1.f, 0.f,
+    0.f, 0.f,
+
+    0.f, 1.f,
+    1.f, 1.f,
+    1.f, 0.f
+  };
+  screenverts->bind();
+  screenverts->upload(vertices);
+  vao->bind();
+  glEnableVertexAttribArray(vattr);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  glDisableVertexAttribArray(vattr);
+  screenverts->unbind();
+  vao->unbind();
+
+  time_unif = sp->bind_uniform("iGlobalTime");
 
   sp->use_this_prog();
   glUniform2f(resolution_unif, s->window_width, s->window_height);
-  sp->dont_use_this_prog();
 
-  time_unif = sp->bind_uniform("iGlobalTime");
+  glm::mat4 projection_mat = glm::ortho(0.f, (float)s->window_width
+      , (float)s->window_height, 0.f, -1.f, 1.f);
+  glUniformMatrix4fv(sp->bind_uniform("projection"), 1, GL_FALSE
+      , glm::value_ptr(projection_mat));
+
+  sp->dont_use_this_prog();
 }
 
 void update(double dt, uint32_t t, screen *s) {
@@ -89,16 +103,28 @@ void update(double dt, uint32_t t, screen *s) {
   sp->dont_use_this_prog();
 }
 
+void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
+    , glm::vec3 color) {
+  glm::mat4 model;
+  model = glm::translate(model, glm::vec3(pos, 0.f));
+  model = glm::translate(model, glm::vec3(0.5f * size.x, 0.5f * size.y, 0.f));
+  model = glm::rotate(model, rotation, glm::vec3(0.f, 0.f, 1.f));
+  model = glm::translate(model, glm::vec3(-0.5f * size.x, -0.5f * size.y, 0.f));
+  model = glm::scale(model, glm::vec3(size, 1.0f));
+
+  sp->use_this_prog();
+  glUniformMatrix4fv(modelmat_unif, 1, GL_FALSE, glm::value_ptr(model));
+  glUniform3f(color_unif, color.x, color.y, color.z);
+  sp->dont_use_this_prog();
+  vao->bind();
+  glDrawArrays(GL_TRIANGLES, 0, 6);
+  vao->unbind();
+}
+
 void draw() {
   glClear(GL_COLOR_BUFFER_BIT);
 
-  sp->use_this_prog();
-  screenverts->bind();
-  glEnableVertexAttribArray(vattr);
-  glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, 0);
-  glDrawArrays(GL_TRIANGLES, 0, 6);
-  glDisableVertexAttribArray(vattr);
-  sp->dont_use_this_prog();
+  draw_square(glm::vec2(100, 200), glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
 }
 
 void cleanup() {
@@ -106,6 +132,7 @@ void cleanup() {
   delete fs;
   delete sp;
   delete screenverts;
+  delete vao;
 }
 
 int main() {

@@ -29,10 +29,10 @@ class array_buffer : public ogl_buffer {
 public:
   array_buffer() : ogl_buffer(GL_ARRAY_BUFFER) {}
   void upload(const std::vector<GLfloat> &data) {
-    bind();
+    // bind();
     glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(data[0]), data.data()
         , GL_STATIC_DRAW);
-    unbind();
+    // unbind();
   }
 };
 
@@ -127,7 +127,7 @@ struct shaderprogram {
   GLint bind_attrib(const char *name) {
     use_this_prog();
     GLint attr = glGetAttribLocation(id, name);
-    assertf(glGetError() == GL_NO_ERROR, "couldn't bind attribute %s", name);
+    assertf(glGetError() == GL_NO_ERROR, "failed to bind attribute %s", name);
     dont_use_this_prog();
     if (attr == -1)
       printf("warning: failed to bind attribute %s\n", name);
@@ -154,10 +154,15 @@ struct vertexarray {
   GLuint id;
   vertexarray() {
     glGenVertexArrays(1, &id);
-    glBindVertexArray(id);
   }
   ~vertexarray() {
     glDeleteVertexArrays(1, &id);
+  }
+  void bind() const {
+    glBindVertexArray(id);
+  }
+  void unbind() const {
+    glBindVertexArray(0);
   }
 };
 
