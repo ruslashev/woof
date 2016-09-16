@@ -28,7 +28,7 @@ public:
 class array_buffer : public ogl_buffer {
 public:
   array_buffer() : ogl_buffer(GL_ARRAY_BUFFER) {}
-  void upload(std::vector<GLfloat> &data) {
+  void upload(const std::vector<GLfloat> &data) {
     bind();
     glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(data[0]), data.data()
         , GL_STATIC_DRAW);

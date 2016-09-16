@@ -10,11 +10,14 @@ GLint vattr;
 array_buffer *screenverts;
 GLint resolution_unif, time_unif;
 shader *vs, *fs;
+glm::mat4 projection;
 
 void load(screen *s) {
   // vertexarray vao;
 
   glClearColor(0.85f, 0.f, 1.f, 1);
+
+  // projection = glm::ortho(0.0f, 800.0f, 600.0f, 0.0f, -1.0f, 1.0f);
 
   std::vector<float> vertices = {
     -1.0f,  1.0f,
@@ -28,20 +31,19 @@ void load(screen *s) {
   screenverts->upload(vertices);
 
   const char *vsrc = _glsl(
-    attribute vec2 position;
+    attribute vec2 vertex_pos;
+    uniform mat4 model;
+    uniform mat4 projection;
     void main() {
-      gl_Position = vec4(position, 0.0, 1.0);
+      gl_Position = projection * model * vec4(vertex_pos, 0.0, 1.0);
     }
   );
   const char *fsrc = _glsl(
     uniform vec2 iResolution;
     uniform float iGlobalTime;
-    // uniform vec3 viewOrigin;
-    // uniform mat4 invProjView;
-    uniform sampler3D world_data;
-
+    uniform vec3 color;
     void main() {
-      gl_FragColor = vec4(1.0, 0.8, 1.0, 1.0);
+      gl_FragColor = vec4(color, 1.0);
     }
   );
 
