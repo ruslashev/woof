@@ -10,10 +10,10 @@ GLint vattr;
 array_buffer *screenverts;
 GLint resolution_unif, time_unif, modelmat_unif, color_unif;
 shader *vs, *fs;
-vertexarray *vao;
+// vertexarray *vao;
 
 void load(screen *s) {
-  glClearColor(0.85f, 0.f, 1.f, 1);
+  glClearColor(0.1f, 0.1f, 0.1f, 1);
 
   const char *vsrc = _glsl(
     attribute vec2 vertex_pos;
@@ -41,7 +41,7 @@ void load(screen *s) {
   modelmat_unif = sp->bind_uniform("model");
   color_unif = sp->bind_uniform("color");
 
-  vao = new vertexarray;
+  // vao = new vertexarray;
 
   screenverts = new array_buffer;
   std::vector<float> vertices = {
@@ -55,12 +55,9 @@ void load(screen *s) {
   };
   screenverts->bind();
   screenverts->upload(vertices);
-  vao->bind();
-  glEnableVertexAttribArray(vattr);
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-  glDisableVertexAttribArray(vattr);
+  // vao->bind();
   screenverts->unbind();
-  vao->unbind();
+  // vao->unbind();
 
   time_unif = sp->bind_uniform("iGlobalTime");
 
@@ -113,18 +110,26 @@ void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
   model = glm::scale(model, glm::vec3(size, 1.0f));
 
   sp->use_this_prog();
+  screenverts->bind();
   glUniformMatrix4fv(modelmat_unif, 1, GL_FALSE, glm::value_ptr(model));
   glUniform3f(color_unif, color.x, color.y, color.z);
-  sp->dont_use_this_prog();
-  vao->bind();
+  // vao->bind();
+
+  glEnableVertexAttribArray(vattr);
+  glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, 0);
   glDrawArrays(GL_TRIANGLES, 0, 6);
-  vao->unbind();
+  glDisableVertexAttribArray(vattr);
+  sp->dont_use_this_prog();
+  screenverts->unbind();
+  // vao->unbind();
 }
 
 void draw() {
   glClear(GL_COLOR_BUFFER_BIT);
 
   draw_square(glm::vec2(100, 200), glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
+  draw_square(glm::vec2(0.5, 0.5), glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
+  draw_square(glm::vec2(0, 0),     glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
 }
 
 void cleanup() {
@@ -132,7 +137,7 @@ void cleanup() {
   delete fs;
   delete sp;
   delete screenverts;
-  delete vao;
+  // delete vao;
 }
 
 int main() {

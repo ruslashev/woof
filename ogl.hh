@@ -36,8 +36,7 @@ public:
   }
 };
 
-static std::string
-get_ogl_shader_err(GLint loglen
+static std::string get_ogl_shader_err(GLint loglen
     , void (*ogl_errmsg_func)(GLuint, GLsizei, GLsizei*, GLchar*)
     , GLuint id) {
   char msg[loglen + 1];
