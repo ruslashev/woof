@@ -12,7 +12,9 @@ GLint resolution_unif, time_unif, modelmat_unif, color_unif;
 shader *vs, *fs;
 vertexarray *vao;
 
-void load(screen *s) {
+void graphics_load(screen *s) {
+  s->lock_mouse();
+
   glClearColor(0.06f, 0.06f, 0.06f, 1);
 
   const char *vsrc = _glsl(
@@ -41,20 +43,20 @@ void load(screen *s) {
   modelmat_unif = sp->bind_uniform("model");
   color_unif = sp->bind_uniform("color");
 
-  std::vector<float> vertices = {
-    0.f, 1.f,
-    1.f, 0.f,
-    0.f, 0.f,
+  const std::vector<float> cube_verts = {
+    0, 1,
+    1, 0,
+    0, 0,
 
-    0.f, 1.f,
-    1.f, 1.f,
-    1.f, 0.f
+    0, 1,
+    1, 1,
+    1, 0
   };
   vao = new vertexarray;
   screenverts = new array_buffer;
   vao->bind();
   screenverts->bind();
-  screenverts->upload(vertices);
+  screenverts->upload(cube_verts);
   glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, 0);
   glEnableVertexAttribArray(vattr);
   vao->unbind();
@@ -74,17 +76,41 @@ void load(screen *s) {
   sp->dont_use_this_prog();
 }
 
+struct player_info {
+  float pos_x, pos_y;
+  float rotation; // radians
+} player;
+
+void load(screen *s) {
+  graphics_load(s);
+
+  player.pos_x = player.pos_y = player.rotation = 0;
+}
+
 void update(double dt, uint32_t t, screen *s) {
   SDL_Event event;
+  float fw = 0, side = 0;
   while (SDL_PollEvent(&event) != 0) {
     if (event.type == SDL_QUIT)
       s->running = false;
     else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
       uint8_t *keystates = (uint8_t*)SDL_GetKeyboardState(nullptr);
-      int fw = keystates[SDL_SCANCODE_W] - keystates[SDL_SCANCODE_S];
-      int side = keystates[SDL_SCANCODE_D] - keystates[SDL_SCANCODE_A];
+      fw = keystates[SDL_SCANCODE_W] - keystates[SDL_SCANCODE_S];
+      side = keystates[SDL_SCANCODE_D] - keystates[SDL_SCANCODE_A];
+      if (!!fw && !!side)
+        fw /= sqrt(2), side /= sqrt(2);
+    } else if (event.type == SDL_MOUSEMOTION) {
+      const float sensitivity = 2.2, m_yaw = 0.022;
+      float mouse_dx = glm::radians(event.motion.xrel * sensitivity * m_yaw);
+      player.rotation += mouse_dx;
+      player.rotation = std::max(player.rotation, -360.f);
+      player.rotation = std::min(player.rotation,  360.f);
     }
   }
+  const float speed = 200;
+  player.pos_x += dt * speed * (fw * cos(player.rotation) + side * cos(player.rotation + M_PI_2));
+  player.pos_y += dt * speed * (fw * sin(player.rotation) + side * sin(player.rotation + M_PI_2));
+
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);
   sp->dont_use_this_prog();
@@ -111,9 +137,8 @@ void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
 void draw() {
   glClear(GL_COLOR_BUFFER_BIT);
 
-  draw_square(glm::vec2(300, 100), glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
-  draw_square(glm::vec2(0.5, 0.5), glm::vec2(50, 25), 3.14 / 2.0, glm::vec3(1,0,0));
-  draw_square(glm::vec2(0, 0),     glm::vec2(50, 25), 0, glm::vec3(1,0,0));
+  draw_square(glm::vec2(400 + player.pos_x, 225 + player.pos_y)
+      , glm::vec2(10, 10), player.rotation, glm::vec3(1, 0, 0));
 }
 
 void cleanup() {

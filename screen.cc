@@ -67,3 +67,12 @@ void screen::mainloop(void (*load_cb)(screen*)
 
   cleanup_cb();
 }
+
+void screen::lock_mouse() {
+  SDL_SetRelativeMouseMode(SDL_TRUE);
+}
+
+void screen::unlock_mouse() {
+  SDL_SetRelativeMouseMode(SDL_FALSE);
+}
+

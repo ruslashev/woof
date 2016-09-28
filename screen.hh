@@ -16,5 +16,7 @@ public:
       , void (*update_cb)(double, uint32_t, screen*)
       , void (*draw_cb)(void)
       , void (*cleanup_cb)(void));
+  void lock_mouse();
+  void unlock_mouse();
 };
 
