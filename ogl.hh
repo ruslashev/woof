@@ -124,19 +124,23 @@ struct shaderprogram {
     buffer.unbind();
   }
   GLint bind_attrib(const char *name) {
+    GLint prev_active_prog;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prev_active_prog);
     use_this_prog();
     GLint attr = glGetAttribLocation(id, name);
     assertf(glGetError() == GL_NO_ERROR, "failed to bind attribute %s", name);
-    dont_use_this_prog();
+    glUseProgram(prev_active_prog);
     if (attr == -1)
       printf("warning: failed to bind attribute %s\n", name);
     return attr;
   }
   GLint bind_uniform(const char *name) {
+    GLint prev_active_prog;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prev_active_prog);
     use_this_prog();
     GLint unif = glGetUniformLocation(id, name);
     assertf(glGetError() == GL_NO_ERROR, "failed to bind uniform %s", name);
-    dont_use_this_prog();
+    glUseProgram(prev_active_prog);
     if (0) // (unif == -1)
       printf("warning: failed to bind uniform %s\n", name);
     return unif;

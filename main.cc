@@ -10,10 +10,10 @@ GLint vattr;
 array_buffer *screenverts;
 GLint resolution_unif, time_unif, modelmat_unif, color_unif;
 shader *vs, *fs;
-// vertexarray *vao;
+vertexarray *vao;
 
 void load(screen *s) {
-  glClearColor(0.1f, 0.1f, 0.1f, 1);
+  glClearColor(0.06f, 0.06f, 0.06f, 1);
 
   const char *vsrc = _glsl(
     attribute vec2 vertex_pos;
@@ -41,9 +41,6 @@ void load(screen *s) {
   modelmat_unif = sp->bind_uniform("model");
   color_unif = sp->bind_uniform("color");
 
-  // vao = new vertexarray;
-
-  screenverts = new array_buffer;
   std::vector<float> vertices = {
     0.f, 1.f,
     1.f, 0.f,
@@ -53,11 +50,16 @@ void load(screen *s) {
     1.f, 1.f,
     1.f, 0.f
   };
+  vao = new vertexarray;
+  screenverts = new array_buffer;
+  vao->bind();
   screenverts->bind();
   screenverts->upload(vertices);
-  // vao->bind();
+  glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  glEnableVertexAttribArray(vattr);
+  vao->unbind();
+  glDisableVertexAttribArray(vattr);
   screenverts->unbind();
-  // vao->unbind();
 
   time_unif = sp->bind_uniform("iGlobalTime");
 
@@ -85,18 +87,6 @@ void update(double dt, uint32_t t, screen *s) {
   }
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);
-
-  /*
-  glm::vec3 pos = glm::vec3(cos(t / 1000.0) * 3.0f, sin(t / 1000.0) * 3.0f, 2.5f)
-    , target = glm::vec3(0, 0, 0);
-  glm::mat4 proj = glm::perspective(70.f,
-      (float)s->window_width / (float)s->window_height, 1.f, 10.f);
-  glm::mat4 view = glm::lookAt(pos, target, glm::vec3(0.f, 0.f, 1.f));
-  glm::mat4 invProjView = glm::inverse(proj * view);
-  glUniformMatrix4fv(sp->bind_attrib("invProjView"), 1, GL_FALSE, glm::value_ptr(invProjView));
-  glUniform3f(sp->bind_attrib("viewOrigin"), pos.x, pos.y, pos.z);
-  */
-
   sp->dont_use_this_prog();
 }
 
@@ -110,26 +100,20 @@ void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
   model = glm::scale(model, glm::vec3(size, 1.0f));
 
   sp->use_this_prog();
-  screenverts->bind();
   glUniformMatrix4fv(modelmat_unif, 1, GL_FALSE, glm::value_ptr(model));
   glUniform3f(color_unif, color.x, color.y, color.z);
-  // vao->bind();
-
-  glEnableVertexAttribArray(vattr);
-  glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  vao->bind();
   glDrawArrays(GL_TRIANGLES, 0, 6);
-  glDisableVertexAttribArray(vattr);
+  vao->unbind();
   sp->dont_use_this_prog();
-  screenverts->unbind();
-  // vao->unbind();
 }
 
 void draw() {
   glClear(GL_COLOR_BUFFER_BIT);
 
-  draw_square(glm::vec2(100, 200), glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
-  draw_square(glm::vec2(0.5, 0.5), glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
-  draw_square(glm::vec2(0, 0),     glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
+  draw_square(glm::vec2(300, 100), glm::vec2(50, 25), 3.14 / 4.0, glm::vec3(1,0,0));
+  draw_square(glm::vec2(0.5, 0.5), glm::vec2(50, 25), 3.14 / 2.0, glm::vec3(1,0,0));
+  draw_square(glm::vec2(0, 0),     glm::vec2(50, 25), 0, glm::vec3(1,0,0));
 }
 
 void cleanup() {
@@ -137,7 +121,7 @@ void cleanup() {
   delete fs;
   delete sp;
   delete screenverts;
-  // delete vao;
+  delete vao;
 }
 
 int main() {
