@@ -13,6 +13,7 @@ public:
   screen(int n_window_width, int n_window_height);
   ~screen();
   void mainloop(void (*load_cb)(screen*)
+      , void (*events_cb)(screen*)
       , void (*update_cb)(double, uint32_t, screen*)
       , void (*draw_cb)(void)
       , void (*cleanup_cb)(void));

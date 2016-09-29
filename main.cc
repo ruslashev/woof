@@ -87,19 +87,18 @@ void load(screen *s) {
   player.pos_x = player.pos_y = player.rotation = 0;
 }
 
-void update(double dt, uint32_t t, screen *s) {
+uint8_t *keystates = nullptr;
+
+void events(screen *s) {
+  if (!keystates)
+    keystates = (uint8_t*)SDL_GetKeyboardState(nullptr);
   SDL_Event event;
-  float fw = 0, side = 0;
   while (SDL_PollEvent(&event) != 0) {
     if (event.type == SDL_QUIT)
       s->running = false;
-    else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
-      uint8_t *keystates = (uint8_t*)SDL_GetKeyboardState(nullptr);
-      fw = keystates[SDL_SCANCODE_W] - keystates[SDL_SCANCODE_S];
-      side = keystates[SDL_SCANCODE_D] - keystates[SDL_SCANCODE_A];
-      if (!!fw && !!side)
-        fw /= sqrt(2), side /= sqrt(2);
-    } else if (event.type == SDL_MOUSEMOTION) {
+    else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
+      keystates = (uint8_t*)SDL_GetKeyboardState(nullptr);
+    else if (event.type == SDL_MOUSEMOTION) {
       const float sensitivity = 2.2, m_yaw = 0.022;
       float mouse_dx = glm::radians(event.motion.xrel * sensitivity * m_yaw);
       player.rotation += mouse_dx;
@@ -107,7 +106,14 @@ void update(double dt, uint32_t t, screen *s) {
       player.rotation = std::min(player.rotation,  360.f);
     }
   }
-  const float speed = 200;
+}
+
+void update(double dt, uint32_t t, screen *s) {
+  float fw = keystates[SDL_SCANCODE_W] - keystates[SDL_SCANCODE_S];
+  float side = keystates[SDL_SCANCODE_D] - keystates[SDL_SCANCODE_A];
+  if (!!fw && !!side)
+    fw /= sqrt(2), side /= sqrt(2);
+  const float speed = 100;
   player.pos_x += dt * speed * (fw * cos(player.rotation) + side * cos(player.rotation + M_PI_2));
   player.pos_y += dt * speed * (fw * sin(player.rotation) + side * sin(player.rotation + M_PI_2));
 
@@ -152,7 +158,7 @@ void cleanup() {
 int main() {
   screen s(800, 450);
 
-  s.mainloop(load, update, draw, cleanup);
+  s.mainloop(load, events, update, draw, cleanup);
 
   return 0;
 }

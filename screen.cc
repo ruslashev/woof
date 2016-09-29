@@ -29,6 +29,7 @@ screen::~screen() {
 }
 
 void screen::mainloop(void (*load_cb)(screen*)
+    , void (*events_cb)(screen*)
     , void (*update_cb)(double, uint32_t, screen*)
     , void (*draw_cb)(void)
     , void (*cleanup_cb)(void)) {
@@ -40,6 +41,8 @@ void screen::mainloop(void (*load_cb)(screen*)
 
   while (running) {
     uint32_t real_time = SDL_GetTicks();
+
+    events_cb(this);
 
     while (simtime < real_time) {
       simtime += 16;
