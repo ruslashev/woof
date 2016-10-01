@@ -1,16 +1,17 @@
+#include "ogl.hh"
 #include "screen.hh"
 #include "utils.hh"
-#include "ogl.hh"
+#include "world.hh"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
 
-shaderprogram *sp;
-GLint vattr;
-array_buffer *screenverts;
-GLint resolution_unif, time_unif, modelmat_unif, color_unif;
-shader *vs, *fs;
-vertexarray *vao;
+static shaderprogram *sp;
+static GLint vattr;
+static array_buffer *screenverts;
+static GLint resolution_unif, time_unif, modelmat_unif, color_unif;
+static shader *vs, *fs;
+static vertexarray *vao;
 
 void graphics_load(screen *s) {
   s->lock_mouse();
@@ -76,18 +77,21 @@ void graphics_load(screen *s) {
   sp->dont_use_this_prog();
 }
 
-struct player_info {
+static struct player_info {
   float pos_x, pos_y;
   float rotation; // radians
 } player;
+static world *w;
 
 void load(screen *s) {
   graphics_load(s);
 
   player.pos_x = player.pos_y = player.rotation = 0;
+
+  w = new world(10, 10);
 }
 
-uint8_t *keystates = nullptr;
+static uint8_t *keystates = nullptr;
 
 void events(screen *s) {
   if (!keystates)
@@ -140,8 +144,21 @@ void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
   sp->dont_use_this_prog();
 }
 
+void draw_world() {
+  for (uint32_t y = 0; y < w->h; y++)
+    for (uint32_t x = 0; x < w->w; x++) {
+      uint8_t element = w->get(x, y);
+      float r, g, b;
+      world_palette_lookup(element, nullptr, &r, &g, &b);
+      draw_square(glm::vec2(x * world_tilesize, y * world_tilesize)
+          , glm::vec2(world_tilesize, world_tilesize), 0, glm::vec3(r, g, b));
+    }
+}
+
 void draw() {
   glClear(GL_COLOR_BUFFER_BIT);
+
+  draw_world();
 
   draw_square(glm::vec2(400 + player.pos_x, 225 + player.pos_y)
       , glm::vec2(10, 10), player.rotation, glm::vec3(1, 0, 0));
@@ -153,6 +170,7 @@ void cleanup() {
   delete sp;
   delete screenverts;
   delete vao;
+  delete w;
 }
 
 int main() {
