@@ -79,7 +79,7 @@ void graphics_load(screen *s) {
 
 static struct player_info {
   float pos_x, pos_y;
-  float rotation; // radians
+  float rotation; // degrees
 } player;
 static world *w;
 
@@ -94,22 +94,7 @@ void load(screen *s) {
 static uint8_t *keystates = nullptr;
 
 void events(screen *s) {
-  if (!keystates)
-    keystates = (uint8_t*)SDL_GetKeyboardState(nullptr);
-  SDL_Event event;
-  while (SDL_PollEvent(&event) != 0) {
-    if (event.type == SDL_QUIT)
-      s->running = false;
-    else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
-      keystates = (uint8_t*)SDL_GetKeyboardState(nullptr);
-    else if (event.type == SDL_MOUSEMOTION) {
-      const float sensitivity = 2.2, m_yaw = 0.022;
-      float mouse_dx = glm::radians(event.motion.xrel * sensitivity * m_yaw);
-      player.rotation += mouse_dx;
-      player.rotation = std::max(player.rotation, -360.f);
-      player.rotation = std::min(player.rotation,  360.f);
-    }
-  }
+
 }
 
 void update(double dt, uint32_t t, screen *s) {
