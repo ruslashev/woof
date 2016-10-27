@@ -6,6 +6,22 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
 
+enum event_type {
+  EV_EMPTY,
+  EV_FORWARD,
+  EV_RIGHT,
+  EV_DIRECTION,
+  EV_QUIT
+};
+
+struct event {
+  event_type type;
+  /* when type == EV_FORWARD and direction == 1, it means that entity is moving
+   * forward, otherwise, if direction == -1, backward. same for EV_RIGHT. */
+  int moving_direction;
+  float look_direction;
+};
+
 static shaderprogram *sp;
 static GLint vattr;
 static array_buffer *screenverts;
@@ -91,21 +107,42 @@ void load(screen *s) {
   w = new world(10, 10);
 }
 
-static uint8_t *keystates = nullptr;
+void key_event(char key, bool down) {
+  /*
+  event e;
+  e.type = EV_EMPTY;
+  e.moving_direction = 0;
+  switch (key) {
+    case 'w':
+      e.type = EV_FORWARD;
+      e.moving_direction = 1;
+      break;
+    case 's':
+      e.type = EV_FORWARD;
+      e.moving_direction = -1;
+      break;
+    case 'd':
+      e.type = EV_RIGHT;
+      e.moving_direction = 1;
+      break;
+    case 'a':
+      e.type = EV_RIGHT;
+      e.moving_direction = -1;
+      break;
+    default:
+      warning("invalid char");
+  }
+  */
+  printf("%s %c\n", down? "press" : "release", key);
+}
 
-void events(screen *s) {
-
+void mousemotion_event(double xrel, double yrel) {
+  const float sensitivity = 2.2, m_yaw = 0.022
+    , mouse_dx = xrel * sensitivity * m_yaw;
+  printf("mm %f\n", mouse_dx);
 }
 
 void update(double dt, uint32_t t, screen *s) {
-  float fw = keystates[SDL_SCANCODE_W] - keystates[SDL_SCANCODE_S];
-  float side = keystates[SDL_SCANCODE_D] - keystates[SDL_SCANCODE_A];
-  if (!!fw && !!side)
-    fw /= sqrt(2), side /= sqrt(2);
-  const float speed = 100;
-  player.pos_x += dt * speed * (fw * cos(player.rotation) + side * cos(player.rotation + M_PI_2));
-  player.pos_y += dt * speed * (fw * sin(player.rotation) + side * sin(player.rotation + M_PI_2));
-
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);
   sp->dont_use_this_prog();
@@ -161,7 +198,7 @@ void cleanup() {
 int main() {
   screen s(800, 450);
 
-  s.mainloop(load, events, update, draw, cleanup);
+  s.mainloop(load, key_event, mousemotion_event, update, draw, cleanup);
 
   return 0;
 }

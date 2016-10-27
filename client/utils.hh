@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fstream>
+#include <cmath>
 
 #ifdef __PRETTY_FUNCTION__
 #define info() \
@@ -34,11 +35,11 @@
 
 #define _glsl(X) "#version 120\n" #X
 
-const inline float to_radians(const float &degrees) {
+inline float to_radians(const float &degrees) {
   return (M_PI * degrees) / 180.f;
 }
 
-const inline float to_degrees(const float &radians) {
+inline float to_degrees(const float &radians) {
   return (180.f * radians) / M_PI;
 }
 
