@@ -2,25 +2,10 @@
 #include "screen.hh"
 #include "utils.hh"
 #include "world.hh"
+#include "net.hh"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
-
-enum event_type {
-  EV_EMPTY,
-  EV_FORWARD,
-  EV_RIGHT,
-  EV_DIRECTION,
-  EV_QUIT
-};
-
-struct event {
-  event_type type;
-  /* when type == EV_FORWARD and direction == 1, it means that entity is moving
-   * forward, otherwise, if direction == -1, backward. same for EV_RIGHT. */
-  int moving_direction;
-  float look_direction;
-};
 
 static shaderprogram *sp;
 static GLint vattr;
@@ -98,6 +83,14 @@ static struct player_info {
   float rotation; // degrees
 } player;
 static world *w;
+static connection *serv;
+
+/*
+static void receive_from_server(const char *buffer, unsigned len) {
+  std::string msg(buffer, len);
+  printf("got msg: \"%s\"\n", msg.c_str());
+}
+*/
 
 void load(screen *s) {
   graphics_load(s);
@@ -105,6 +98,8 @@ void load(screen *s) {
   player.pos_x = player.pos_y = player.rotation = 0;
 
   w = new world(10, 10);
+
+  serv = new connection();
 }
 
 void key_event(char key, bool down) {
@@ -139,10 +134,11 @@ void key_event(char key, bool down) {
 void mousemotion_event(double xrel, double yrel) {
   const float sensitivity = 2.2, m_yaw = 0.022
     , mouse_dx = xrel * sensitivity * m_yaw;
-  printf("mm %f\n", mouse_dx);
 }
 
 void update(double dt, uint32_t t, screen *s) {
+  serv->poll();
+
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);
   sp->dont_use_this_prog();
@@ -193,6 +189,7 @@ void cleanup() {
   delete screenverts;
   delete vao;
   delete w;
+  delete serv;
 }
 
 int main() {
