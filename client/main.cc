@@ -81,7 +81,7 @@ static struct player_info {
   float pos_x, pos_y;
   float rotation; // degrees
 } player;
-static connection *serv;
+static net *n;
 
 /*
 static void receive_from_server(const char *buffer, unsigned len) {
@@ -95,7 +95,7 @@ void load(screen *s) {
 
   player.pos_x = player.pos_y = player.rotation = 0;
 
-  serv = new connection();
+  n = new net;
 }
 
 void key_event(char key, bool down) {
@@ -133,8 +133,6 @@ void mousemotion_event(double xrel, double yrel) {
 }
 
 void update(double dt, uint32_t t, screen *s) {
-  serv->poll();
-
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);
   sp->dont_use_this_prog();
@@ -171,7 +169,7 @@ void cleanup() {
   delete sp;
   delete screenverts;
   delete vao;
-  delete serv;
+  delete n;
 }
 
 int main() {
