@@ -83,13 +83,6 @@ static struct player_info {
 } player;
 static net *n;
 
-/*
-static void receive_from_server(const char *buffer, unsigned len) {
-  std::string msg(buffer, len);
-  printf("got msg: \"%s\"\n", msg.c_str());
-}
-*/
-
 void load(screen *s) {
   graphics_load(s);
 
@@ -133,6 +126,8 @@ void mousemotion_event(double xrel, double yrel) {
 }
 
 void update(double dt, uint32_t t, screen *s) {
+  n->poll();
+
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);
   sp->dont_use_this_prog();
