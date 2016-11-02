@@ -83,12 +83,19 @@ static struct player_info {
 } player;
 static net *n;
 
+void receive(char *buffer, size_t bytes_rx) {
+  puts("receive:");
+  for (size_t i = 0; i < bytes_rx; i++)
+    printf("%c", buffer[i]);
+  puts("");
+}
+
 void load(screen *s) {
   graphics_load(s);
 
   player.pos_x = player.pos_y = player.rotation = 0;
 
-  n = new net;
+  n = new net(receive);
 }
 
 void key_event(char key, bool down) {
