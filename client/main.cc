@@ -96,6 +96,8 @@ void load(screen *s) {
   player.pos_x = player.pos_y = player.rotation = 0;
 
   n = new net(receive);
+  char msg[] = "hi";
+  n->send(msg, 3);
 }
 
 void key_event(char key, bool down) {

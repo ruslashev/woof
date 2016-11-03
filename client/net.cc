@@ -7,8 +7,12 @@ void net::start_receive() {
           warning("received message longer than the buffer");
         else if (e || bytes_rx == 0)
           warning("something is wrong");
-        else
+        else {
+          printf("receive from %s:%d\n"
+              , _remote_endpoint.address().to_string().c_str()
+              , _remote_endpoint.port());
           receive_cb(_recv_buffer, bytes_rx);
+        }
         start_receive();
       });
 }
@@ -18,6 +22,15 @@ net::net(void (*n_receive_cb)(char*, size_t))
   , _socket(_io, asio::ip::udp::endpoint(asio::ip::udp::v4(), _port))
   , receive_cb(n_receive_cb) {
     start_receive();
+}
+
+void net::send(char *message, size_t len) {
+  asio::ip::udp::endpoint recv_endpoint(
+      asio::ip::address::from_string("127.0.0.1"), 1356);
+  _socket.async_send_to(asio::buffer(message, len), recv_endpoint
+      , [this](const asio::error_code &e, size_t bytes_tx) {
+        puts("ok, sent(?)");
+      });
 }
 
 void net::poll() {

@@ -13,7 +13,7 @@ class net {
   void (*receive_cb)(char*, size_t);
 public:
   net(void (*n_receive_cb)(char*, size_t));
-
+  void send(char *message, size_t len);
   void poll();
 };
 
