@@ -40,7 +40,7 @@ static inline char sdlkey_to_char(const SDL_Keycode &kc) {
 
 void screen::mainloop(void (*load_cb)(screen*)
     , void (*key_event_cb)(char, bool)
-    , void (*mousemotion_event_cb)(double, double)
+    , void (*mousemotion_event_cb)(float, float)
     , void (*update_cb)(double, uint32_t, screen*)
     , void (*draw_cb)(void)
     , void (*cleanup_cb)(void)) {

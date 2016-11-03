@@ -36,10 +36,10 @@
 #define _glsl(X) "#version 120\n" #X
 
 inline float to_radians(const float &degrees) {
-  return (M_PI * degrees) / 180.f;
+  return (3.14159265359f * degrees) / 180.f;
 }
 
 inline float to_degrees(const float &radians) {
-  return (180.f * radians) / M_PI;
+  return (180.f * radians) / 3.14159265359f;
 }
 

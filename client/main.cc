@@ -127,7 +127,7 @@ void key_event(char key, bool down) {
   printf("%s %c\n", down? "press" : "release", key);
 }
 
-void mousemotion_event(double xrel, double yrel) {
+void mousemotion_event(float xrel, float yrel) {
   const float sensitivity = 2.2, m_yaw = 0.022
     , mouse_dx = xrel * sensitivity * m_yaw;
 }
