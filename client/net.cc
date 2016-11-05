@@ -30,7 +30,7 @@ void net::send(char *message, size_t len) {
   _socket.async_send_to(asio::buffer(message, len), recv_endpoint
       , [this, len](const asio::error_code &e, size_t bytes_tx) {
         if (bytes_tx != len)
-          printf("somewhy %d/%d bytes have been sent\n", bytes_tx, len);
+          printf("somewhy %zu/%zu bytes have been sent\n", bytes_tx, len);
         if (e && e != asio::error::message_size)
           puts("some kind of error happened on sending");
         else

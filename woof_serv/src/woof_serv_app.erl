@@ -2,9 +2,9 @@
 -behaviour(application).
 -export([start/2, stop/1]).
 
-start(_StartType, _StartArgs) ->
+start(_, _) ->
     woof_serv_sup:start_link().
 
-stop(_State) ->
+stop(_) ->
     ok.
 

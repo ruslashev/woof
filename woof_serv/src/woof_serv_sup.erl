@@ -7,11 +7,10 @@ start_link() ->
     supervisor:start_link({ local, ?MODULE }, ?MODULE, []).
 
 init([]) ->
-    { ok, { { one_for_one, 1, 5 },
-            [{server,
-              { woof_serv, start_link, []},
-              permanent, 5000, worker, [woof_serv]
-             }
+    { ok, { { one_for_one, 10, 60 },
+            [{ woof_client_sup,
+               { woof_client_sup, start_link, []},
+               permanent, 60 * 1000, supervisor, [woof_client_sup] }
             ]
           }
     }.
