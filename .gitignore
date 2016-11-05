@@ -1,4 +1,14 @@
 woof
-*.beam
 *.o
+*.beam
+.rebar3
+rebar.lock
+_*
+ebin
+.erlang.cookie
+erl_crash.dump
+.eunit
+log
+logs
+*.plt
 

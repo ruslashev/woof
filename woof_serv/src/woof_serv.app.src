@@ -1,0 +1,12 @@
+{ application, woof_serv,
+  [{ description, "woof game standalone server" },
+   { vsn, "0.1.0" },
+   { registered, [] },
+   { mod, { woof_serv_app, [] } },
+   { applications, [kernel, stdlib] },
+   { env, [{ port_serv,   2711 },
+           { port_client, 2710 }]},
+   { modules, [] }
+  ]
+}.
+
