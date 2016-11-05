@@ -4,7 +4,7 @@
 #include <fstream>
 
 class net {
-  static const int _port = 2710, _max_msg_len = 1024;
+  static const int _port_serv = 2711, _port_client = 2710, _max_msg_len = 1024;
   asio::io_service _io;
   asio::ip::udp::socket _socket;
   asio::ip::udp::endpoint _remote_endpoint;

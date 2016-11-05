@@ -1,2 +1,4 @@
 woof
+*.beam
+*.o
 
