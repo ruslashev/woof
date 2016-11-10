@@ -24,12 +24,14 @@ handle_cast(Unknown, State) ->
 %     ok = inet:setopts(Socket, [binary, { active, once }]),
 %     ok.
 
-handle_info({ udp, _Socket, RemoteIP, RemotePort, Message },
-            State = #server_state{ clients = Clients }) ->
-    wl:log("got message \"~p\"", [Message]),
-    { noreply, State };
-handle_info(Unknown, State) ->
-    wl:log("unknown info: ~p", [Unknown]),
+handle_info(InfoMsg, State = #server_state{ socket = Socket, clients = _Clients }) ->
+    case InfoMsg of
+        { udp, _Socket, _RemoteIP, _RemotePort, Message } ->
+            wl:log("got message \"~p\"", [Message]);
+        Unknown ->
+            wl:log("unknown message \"~p\"", [Unknown])
+    end,
+    inet:setopts(Socket, [{ active, once }]),
     { noreply, State }.
 
 handle_call(Unknown, _, State) ->

@@ -98,6 +98,7 @@ void load(screen *s) {
   n = new net(receive);
   char msg[] = "hi";
   n->send(msg, 3);
+  send_connection_req(n);
 }
 
 void key_event(char key, bool down) {
