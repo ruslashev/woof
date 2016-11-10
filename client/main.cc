@@ -83,7 +83,7 @@ static struct player_info {
 } player;
 static net *n;
 
-void receive(char *buffer, size_t bytes_rx) {
+void receive(uint8_t *buffer, size_t bytes_rx) {
   puts("receive:");
   for (size_t i = 0; i < bytes_rx; i++)
     printf("%c", buffer[i]);
@@ -96,7 +96,7 @@ void load(screen *s) {
   player.pos_x = player.pos_y = player.rotation = 0;
 
   n = new net(receive);
-  char msg[] = "hi";
+  uint8_t msg[] = "hi";
   n->send(msg, 3);
   send_connection_req(n);
 }
