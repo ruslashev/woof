@@ -29,21 +29,12 @@ enum error_type {
 };
 
 // struct packet_header {
-//   uint8_t reliable : 1;
 //   uint8_t type : 7;
+//   uint8_t reliable : 1;
 //   uint16_t client_id : 10;
 // };
 
 void send_connection_req(net *n);
-
-/*
- struct packet {
-   uint8_t client_id : 12;
-   uint8_t data[max_msg_len];
-   uint16_t data_len;
-   void serialize(uint8_t *buffer, size_t len);
- };
- */
 
 // struct incoming_packet {
 //   uint8_t type; /* 4 */

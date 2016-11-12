@@ -18,8 +18,13 @@ start_link() ->
 
 init([]) ->
     { ok, PortServer } = application:get_env(port_serv),
-    { ok, Socket } = gen_udp:open(PortServer, [binary, { active, once }]),
-    { ok, #server_state{ socket = Socket, clients = [] } }.
+    case gen_udp:open(PortServer, [binary, { active, once }]) of
+        { ok, Socket } ->
+            { ok, #server_state{ socket = Socket } };
+        { error, Reason } ->
+            wl:log("Failed to open server socket: ~p", [Reason]),
+            { stop, Reason }
+    end.
 
 handle_cast(Unknown, State) ->
     wl:log("unknown cast ~p", [Unknown]),
@@ -29,20 +34,20 @@ handle_info(InfoMsg, State =
             #server_state{ socket = Socket, clients = _Clients }) ->
     case InfoMsg of
         { udp, _Socket, RemoteIp, RemotePort, Message } ->
-            RemoteClientTuple = { Socket, RemoteIp, RemotePort },
+            ClientTuple = { Socket, RemoteIp, RemotePort },
             wl:log("got message \"~p\"", [Message]),
-            <<_Reliable:1, Type:7, Rest/binary>> = Message,
+            <<Type:7, Rest/binary>> = Message,
             case Type of
                 ?CONNECTION_REQ ->
-                    <<_RelMsgId:32, ProtocolVersion:8>> = Rest,
-                    % send(RemoteClientTuple, <<?ACK:1, RelMsgId:32>>),
+                    <<_Reliable:1, _RelMsgId:32, ProtocolVersion:8>> = Rest,
+                    % send(ClientTuple, <<?ACK:1, RelMsgId:32>>),
                     if ProtocolVersion =/= 2 ->
-                           send(RemoteClientTuple,
+                           send(ClientTuple,
                                 <<1:1, ?ERROR:7, ?ERROR_TYPE_OLD_PROTOCOL:8>>);
-                           % send(RemoteClientTuple, "hi");
+                           % send(ClientTuple, "hi");
                        true ->
                            NewClientId = 123,
-                           send(RemoteClientTuple, <<NewClientId:10>>)
+                           send(ClientTuple, <<NewClientId:10>>)
                     end;
                 _ ->
                     ok
@@ -70,7 +75,9 @@ terminate(Reason, State) ->
 send({ Socket, RemoteIp, RemotePort }, Msg) ->
     case gen_udp:send(Socket, RemoteIp, RemotePort, Msg) of
         ok -> ok;
-        { error, Reason } -> wl:log("Failed to send: ~p", [Reason]), ok
+        { error, Reason } ->
+            wl:log("Failed to send: ~p", [Reason]),
+            erlang:error(Reason)
     end.
 
 % new_client_id(State = #server_state { last_client_id = LastClientId }) ->

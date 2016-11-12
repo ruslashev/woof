@@ -62,12 +62,12 @@ static uint32_t generate_rel_msg_id() {
 }
 
 void send_connection_req(net *n) {
-  /* reliable     : 1 bit   = 1
-   * type         : 7 bits  = CONNECTION_REQ
+  /* type         : 7 bits  = CONNECTION_REQ
+   * reliable     : 1 bit   = 1
    * rel_msg_id   : 32 bits = ...
    * protocol_ver : 8 bits  = 1
    */
-  uint8_t connection_req_packet_serialized[6] = { 0b10000001 };
+  uint8_t connection_req_packet_serialized[6] = { 0b00000011 };
   uint32_t rel_msg_id = htonl(generate_rel_msg_id());
   *(uint32_t*)((uint8_t*)connection_req_packet_serialized + 1) = rel_msg_id;
   *(uint8_t*)(connection_req_packet_serialized + 5) = 1;
