@@ -94,6 +94,16 @@ void receive(uint8_t *buffer, size_t bytes_rx) {
   print_packet(buffer, bytes_rx, "received packet");
 
   switch ((buffer[0] & 0b11111110) >> 1) {
+    case ERROR:
+      puts("type: ERROR");
+      switch (buffer[1]) {
+        case NOT_MATCHING_PROTOCOL:
+          puts("type: NOT_MATCHING_PROTOCOL");
+          break;
+        default:
+          puts("unknown type");
+      }
+      break;
     case CONNECTION_REPLY:
       puts("type: CONNECTION_REPLY");
       net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));

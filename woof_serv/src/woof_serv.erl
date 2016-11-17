@@ -11,11 +11,11 @@
 
 -define(PACKET_TYPE_ACK, 0).
 -define(PACKET_TYPE_CONNECTION_REQ, 1).
--define(PACKET_TYPE_ERROR, 2).
-
--define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
 
 -define(SERVER_PACKET_TYPE_CONNECTION_REPLY, 0).
+-define(SERVER_PACKET_TYPE_ERROR, 1).
+
+-define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
 
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
@@ -39,7 +39,7 @@ handle_info(InfoMsg, State = #server_state{ socket = Socket }) ->
             catch
                 error:{ badmatch, _ } -> wl:log("Malformed message");
                 _:Exc -> wl:log("Unhandled exception from handle_udp_message:"
-                                " ~p", [Exc])
+                                " ~p~n~p", [Exc, erlang:get_stacktrace()])
             end;
         Unknown ->
             wl:log("unknown message \"~p\"", [Unknown])
@@ -70,7 +70,7 @@ handle_udp_message(ClientTuple, Message) ->
     case Type of
         ?PACKET_TYPE_CONNECTION_REQ ->
             <<_RelMsgId:32, ProtocolVersion:8>> = Rest,
-            case ProtocolVersion =:= 1 of
+            case ProtocolVersion =:= 2 of
                 true ->
                     NewClientId = 13435,
                     wl:log("Connection req from client ~p. Its client id is now"
@@ -79,9 +79,10 @@ handle_udp_message(ClientTuple, Message) ->
                                         1:1, NewClientId:16>>);
                 false ->
                     wl:log("Connection req from client ~p. Its protocol version"
-                           " (~p) does equal current (~p)", [ClientTuple,
-                                                             ?PROTOCOL_VERSION])
-                    % send(ClientTuple, <<1:1, ?ERROR:7, ?ERROR_TYPE_OLD_PROTOCOL:8>>);
+                           " (~p) does equal current (~p)",
+                           [ClientTuple, ProtocolVersion, ?PROTOCOL_VERSION]),
+                    send(ClientTuple, <<?SERVER_PACKET_TYPE_ERROR:7, 1:1,
+                                        ?ERROR_TYPE_NOT_MATCHING_PROTOCOL:8>>)
             end;
         _ ->
             wl:log("Bad message type ~p from client ~p", [Type, ClientTuple])
