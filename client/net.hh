@@ -25,7 +25,7 @@ enum packet_type {
 };
 
 enum error_type {
-  OLD_PROTOCOL = 0
+  NOT_MATCHING_PROTOCOL = 0
 };
 
 // struct packet_header {

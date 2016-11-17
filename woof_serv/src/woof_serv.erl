@@ -7,11 +7,13 @@
 % -record(client, { client_id = -1, ip, port }).
 -record(server_state, { socket, last_client_id = 0, clients = [] }).
 
+-define(PROTOCOL_VERSION, 1).
+
 -define(ACK, 0).
 -define(CONNECTION_REQ, 1).
 -define(ERROR, 2).
 
--define(ERROR_TYPE_OLD_PROTOCOL, 0).
+-define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
 
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
@@ -26,36 +28,25 @@ init([]) ->
             { stop, Reason }
     end.
 
-handle_cast(Unknown, State) ->
-    wl:log("unknown cast ~p", [Unknown]),
-    { noreply, State }.
-
-handle_info(InfoMsg, State =
-            #server_state{ socket = Socket, clients = _Clients }) ->
+handle_info(InfoMsg, State = #server_state{ socket = Socket }) ->
     case InfoMsg of
         { udp, _Socket, RemoteIp, RemotePort, Message } ->
             ClientTuple = { Socket, RemoteIp, RemotePort },
-            wl:log("got message \"~p\"", [Message]),
-            <<Type:7, Rest/binary>> = Message,
-            case Type of
-                ?CONNECTION_REQ ->
-                    <<_Reliable:1, _RelMsgId:32, ProtocolVersion:8>> = Rest,
-                    % send(ClientTuple, <<?ACK:1, RelMsgId:32>>),
-                    if ProtocolVersion =/= 2 ->
-                           send(ClientTuple,
-                                <<1:1, ?ERROR:7, ?ERROR_TYPE_OLD_PROTOCOL:8>>);
-                           % send(ClientTuple, "hi");
-                       true ->
-                           NewClientId = 123,
-                           send(ClientTuple, <<NewClientId:10>>)
-                    end;
-                _ ->
-                    ok
+            wl:log("got message \"~p\" from ~p", [Message, ClientTuple]),
+            try handle_udp_message(ClientTuple, Message)
+            catch
+                error:{ badmatch, _ } -> wl:log("Malformed message");
+                _:Exc -> wl:log("Unhandled exception from handle_udp_message:"
+                                " ~p", [Exc])
             end;
         Unknown ->
             wl:log("unknown message \"~p\"", [Unknown])
     end,
     inet:setopts(Socket, [{ active, once }]),
+    { noreply, State }.
+
+handle_cast(Unknown, State) ->
+    wl:log("unknown cast ~p", [Unknown]),
     { noreply, State }.
 
 handle_call(Unknown, _, State) ->
@@ -71,6 +62,26 @@ terminate(normal, _State = #server_state{ socket = Socket }) ->
 terminate(Reason, State) ->
     wl:log("terminate reason: ~p~n", [Reason]),
     terminate(normal, State).
+
+handle_udp_message(ClientTuple, Message) ->
+    <<Type:7, _Reliable:1, Rest/binary>> = Message,
+    case Type of
+        ?CONNECTION_REQ ->
+            <<_Reliable:1, _RelMsgId:32, ProtocolVersion:8>> = Rest,
+            case ProtocolVersion =:= 1 of
+                true ->
+                    NewClientId = 123,
+                    wl:log("Connection req from client ~p. Its client id is now"
+                           " ~p", [ClientTuple, NewClientId]);
+                false ->
+                    wl:log("Connection req from client ~p. Its protocol version"
+                           " (~p) does equal current (~p)", [ClientTuple,
+                                                             ?PROTOCOL_VERSION])
+                    % send(ClientTuple, <<1:1, ?ERROR:7, ?ERROR_TYPE_OLD_PROTOCOL:8>>);
+            end;
+        _ ->
+            wl:log("Bad message type ~p from client ~p", [Type, ClientTuple])
+    end.
 
 send({ Socket, RemoteIp, RemotePort }, Msg) ->
     case gen_udp:send(Socket, RemoteIp, RemotePort, Msg) of
