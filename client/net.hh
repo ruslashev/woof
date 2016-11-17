@@ -3,6 +3,8 @@
 #include "utils.hh"
 #include <fstream>
 
+void print_packet(uint8_t *packet, size_t len, const char *msg = "packet");
+
 static const int port_serv = 2711, port_client = 2710, max_msg_len = 256;
 
 class net {
@@ -28,15 +30,15 @@ enum error_type {
   NOT_MATCHING_PROTOCOL = 0
 };
 
-// struct packet_header {
-//   uint8_t type : 7;
-//   uint8_t reliable : 1;
-//   uint16_t client_id : 10;
-// };
+enum server_packet_type {
+  CONNECTION_REPLY = 0
+};
+
+struct server_packet_connection_reply {
+  uint8_t type : 7; // CONNECTION_REPLY
+  uint8_t unused : 1;
+  uint16_t client_id : 16;
+};
 
 void send_connection_req(net *n);
-
-// struct incoming_packet {
-//   uint8_t type; /* 4 */
-// };
 

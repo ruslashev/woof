@@ -1,7 +1,6 @@
 #include "net.hh"
 
-static void print_packet(uint8_t *packet, size_t len
-    , const char *msg = "packet") {
+void print_packet(uint8_t *packet, size_t len, const char *msg) {
   printf("%s: ", msg);
   for (size_t i = 0; i < len; i++) {
     int numbits = 8;
@@ -23,7 +22,6 @@ void net::start_receive() {
           printf("receive from %s:%d\n"
               , _remote_endpoint.address().to_string().c_str()
               , _remote_endpoint.port());
-          print_packet(_recv_buffer, bytes_rx, "received packet");
           receive_cb(_recv_buffer, bytes_rx);
         }
         start_receive();
@@ -68,10 +66,10 @@ void send_connection_req(net *n) {
    * protocol_ver : 8 bits  = 1
    */
   uint8_t connection_req_packet_serialized[6] = { 0b00000011 };
-  uint32_t rel_msg_id = htonl(generate_rel_msg_id());
+  const uint32_t rel_msg_id = htonl(generate_rel_msg_id());
   *(uint32_t*)((uint8_t*)connection_req_packet_serialized + 1) = rel_msg_id;
   *(uint8_t*)(connection_req_packet_serialized + 5) = 1;
-  print_packet(connection_req_packet_serialized, 6);
+  print_packet(connection_req_packet_serialized, 6, "connection req");
   n->send(connection_req_packet_serialized, 6);
 }
 

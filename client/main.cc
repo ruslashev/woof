@@ -82,12 +82,26 @@ static struct player_info {
   float rotation; // degrees
 } player;
 static net *n;
+static struct {
+  uint16_t client_id;
+} net_state;
 
 void receive(uint8_t *buffer, size_t bytes_rx) {
-  puts("receive:");
+  /* puts("receive:");
   for (size_t i = 0; i < bytes_rx; i++)
     printf("%c", buffer[i]);
-  puts("");
+  puts(""); */
+  print_packet(buffer, bytes_rx, "received packet");
+
+  switch ((buffer[0] & 0b11111110) >> 1) {
+    case CONNECTION_REPLY:
+      puts("type: CONNECTION_REPLY");
+      net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
+      printf("assigned client id: %d\n", net_state.client_id);
+      break;
+    default:
+      puts("unknown type");
+  }
 }
 
 void load(screen *s) {
@@ -96,8 +110,6 @@ void load(screen *s) {
   player.pos_x = player.pos_y = player.rotation = 0;
 
   n = new net(receive);
-  uint8_t msg[] = "hi";
-  n->send(msg, 3);
   send_connection_req(n);
 }
 
