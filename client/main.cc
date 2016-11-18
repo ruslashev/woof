@@ -82,19 +82,39 @@ static struct player_info {
   float rotation; // degrees
 } player;
 static net *n;
-static struct {
+static reliable_packet_sender *ps;
+/*
+enum class connection_state_type : uint8_t {
+  disconnected,
+  connecting,
+  connection_failed,
+  connected
+};
+*/
+static struct net_state_type {
   uint16_t client_id;
+  uint32_t time_since_last_pong;
+  // connection_state_type connection_state;
+  net_state_type() : client_id(0), time_since_last_pong(0) {
+  }
 } net_state;
 
 void receive(uint8_t *buffer, size_t bytes_rx) {
-  /* puts("receive:");
-  for (size_t i = 0; i < bytes_rx; i++)
-    printf("%c", buffer[i]);
-  puts(""); */
   print_packet(buffer, bytes_rx, "received packet");
-
   switch ((buffer[0] & 0b11111110) >> 1) {
-    case ERROR:
+    case (uint8_t)server_packet_type::ACK:
+      puts("type: ACK");
+      break;
+    case (uint8_t)server_packet_type::PONG:
+      puts("type: PONG");
+      net_state.time_since_last_pong = 0;
+      break;
+    case (uint8_t)server_packet_type::CONNECTION_REPLY:
+      puts("type: CONNECTION_REPLY");
+      net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
+      printf("assigned client id: %d\n", net_state.client_id);
+      break;
+    case (uint8_t)server_packet_type::ERROR:
       puts("type: ERROR");
       switch (buffer[1]) {
         case NOT_MATCHING_PROTOCOL:
@@ -103,11 +123,6 @@ void receive(uint8_t *buffer, size_t bytes_rx) {
         default:
           puts("unknown type");
       }
-      break;
-    case CONNECTION_REPLY:
-      puts("type: CONNECTION_REPLY");
-      net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
-      printf("assigned client id: %d\n", net_state.client_id);
       break;
     default:
       puts("unknown type");
@@ -120,7 +135,8 @@ void load(screen *s) {
   player.pos_x = player.pos_y = player.rotation = 0;
 
   n = new net(receive);
-  send_connection_req(n);
+  ps = new reliable_packet_sender();
+  // send_connection_req(n);
 }
 
 void key_event(char key, bool down) {
@@ -197,6 +213,7 @@ void cleanup() {
   delete screenverts;
   delete vao;
   delete n;
+  delete ps;
 }
 
 int main() {

@@ -43,3 +43,15 @@ inline float to_degrees(const float &radians) {
   return (180.f * radians) / 3.14159265359f;
 }
 
+inline void print_packet(uint8_t *packet, size_t len
+    , const char *msg = "packet") {
+  printf("%s: ", msg);
+  for (size_t i = 0; i < len; i++) {
+    int numbits = 8;
+    while (--numbits >= 0)
+      printf("%c", (packet[i] & ((uint8_t)1 << numbits)) ? '1' : '0');
+    printf(" ");
+  }
+  printf("\n");
+}
+
