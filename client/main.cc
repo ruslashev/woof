@@ -82,7 +82,7 @@ static struct player_info {
   float rotation; // degrees
 } player;
 static net *n;
-static reliable_packet_sender *ps;
+static reliable_connection *c;
 /*
 enum class connection_state_type : uint8_t {
   disconnected,
@@ -92,10 +92,9 @@ enum class connection_state_type : uint8_t {
 };
 */
 static struct net_state_type {
-  uint16_t client_id;
   uint32_t time_since_last_pong;
   // connection_state_type connection_state;
-  net_state_type() : client_id(0), time_since_last_pong(0) {
+  net_state_type() : time_since_last_pong(0) {
   }
 } net_state;
 
@@ -111,8 +110,8 @@ void receive(uint8_t *buffer, size_t bytes_rx) {
       break;
     case (uint8_t)server_packet_type::CONNECTION_REPLY:
       puts("type: CONNECTION_REPLY");
-      net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
-      printf("assigned client id: %d\n", net_state.client_id);
+      // net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
+      // printf("assigned client id: %d\n", net_state.client_id);
       break;
     case (uint8_t)server_packet_type::ERROR:
       puts("type: ERROR");
@@ -135,7 +134,7 @@ void load(screen *s) {
   player.pos_x = player.pos_y = player.rotation = 0;
 
   n = new net(receive);
-  ps = new reliable_packet_sender();
+  c = new reliable_connection();
   // send_connection_req(n);
 }
 
@@ -213,7 +212,7 @@ void cleanup() {
   delete screenverts;
   delete vao;
   delete n;
-  delete ps;
+  delete c;
 }
 
 int main() {

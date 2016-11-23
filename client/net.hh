@@ -26,7 +26,6 @@ struct connection_request { // struct for reference
   uint32_t sequence_num;
   uint8_t protocol_ver; // 1
 };
-
 struct server_packet_connection_reply { // struct for reference
   uint8_t type : 7;
   uint8_t unused : 1;
@@ -53,28 +52,21 @@ enum error_type {
   NOT_MATCHING_PROTOCOL = 0
 };
 
-struct base_packet {
-  uint8_t type : 7;
-  uint8_t reliable : 1;
+struct packet {
+  uint8_t  reliable; // 1
+  uint32_t sequence; // 31
+  uint32_t ack_sequence;
+  uint16_t client_id;
 };
 
-struct reliable_base_packet : base_packet {
-  uint32_t sequence_num;
-} __attribute__((packed));
-
-struct connection_request_packet : reliable_base_packet {
-  uint8_t protocol_ver;
-};
-
-class reliable_packet_sender {
+class reliable_connection {
+  // std::queue<
+  uint16_t client_id;
 public:
-  reliable_packet_sender() {
-    base_packet b;
-    reliable_base_packet rb;
-    connection_request_packet p;
-    printf("sizeof(base_packet) = %zu\n", sizeof(b));
-    printf("sizeof(reliable_base_packet) = %zu\n", sizeof(rb));
-    printf("sizeof(connection_request_packet) = %zu\n", sizeof(p));
+  reliable_connection() {
+    srand(time(nullptr));
+    client_id = rand();
+    printf("this client id is %d\n", client_id);
   };
 };
 
