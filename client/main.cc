@@ -81,61 +81,15 @@ static struct player_info {
   float pos_x, pos_y;
   float rotation; // degrees
 } player;
-static net *n;
-static reliable_connection *c;
-/*
-enum class connection_state_type : uint8_t {
-  disconnected,
-  connecting,
-  connection_failed,
-  connected
-};
-*/
-static struct net_state_type {
-  uint32_t time_since_last_pong;
-  // connection_state_type connection_state;
-  net_state_type() : time_since_last_pong(0) {
-  }
-} net_state;
 
-void receive(uint8_t *buffer, size_t bytes_rx) {
-  print_packet(buffer, bytes_rx, "received packet");
-  switch ((buffer[0] & 0b11111110) >> 1) {
-    case (uint8_t)server_packet_type::ACK:
-      puts("type: ACK");
-      break;
-    case (uint8_t)server_packet_type::PONG:
-      puts("type: PONG");
-      net_state.time_since_last_pong = 0;
-      break;
-    case (uint8_t)server_packet_type::CONNECTION_REPLY:
-      puts("type: CONNECTION_REPLY");
-      // net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
-      // printf("assigned client id: %d\n", net_state.client_id);
-      break;
-    case (uint8_t)server_packet_type::ERROR:
-      puts("type: ERROR");
-      switch (buffer[1]) {
-        case NOT_MATCHING_PROTOCOL:
-          puts("type: NOT_MATCHING_PROTOCOL");
-          break;
-        default:
-          puts("unknown type");
-      }
-      break;
-    default:
-      puts("unknown type");
-  }
-}
+static connection *c;
 
 void load(screen *s) {
   graphics_load(s);
 
   player.pos_x = player.pos_y = player.rotation = 0;
 
-  n = new net(receive);
-  c = new reliable_connection();
-  // send_connection_req(n);
+  c = new connection();
 }
 
 void key_event(char key, bool down) {
@@ -173,7 +127,7 @@ void mousemotion_event(float xrel, float yrel) {
 }
 
 void update(double dt, uint32_t t, screen *s) {
-  n->poll();
+  c->poll(t);
 
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);
@@ -211,7 +165,6 @@ void cleanup() {
   delete sp;
   delete screenverts;
   delete vao;
-  delete n;
   delete c;
 }
 

@@ -3,19 +3,25 @@
 #include <asio.hpp> // hton*
 
 void bytestream::write_uint32(uint32_t value) {
-  assertf(index + 4 <= size, "bytestream overflow");
+  error_flag |= index + 4 > size;
+  if (error_flag)
+    return;
   *((uint32_t*)(data + index)) = htonl(value);
   index += 4;
 }
 
 void bytestream::write_uint16(uint16_t value) {
-  assertf(index + 2 <= size, "bytestream overflow");
+  error_flag |= index + 2 > size;
+  if (error_flag)
+    return;
   *((uint16_t*)(data + index)) = htons(value);
   index += 2;
 }
 
 void bytestream::write_uint8(uint8_t value) {
-  assertf(index + 1 <= size, "bytestream overflow");
+  error_flag |= index + 1 > size;
+  if (error_flag)
+    return;
   *(data + index) = value;
   index += 1;
 }

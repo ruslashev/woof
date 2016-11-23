@@ -19,23 +19,6 @@ public:
   void set_endpoint(std::string hostname);
 };
 
-/*
-struct connection_request { // struct for reference
-  uint8_t type : 7; // CONNECTION_REQ
-  uint8_t reliable : 1; // 1
-  uint32_t sequence_num;
-  uint8_t protocol_ver; // 1
-};
-struct server_packet_connection_reply { // struct for reference
-  uint8_t type : 7;
-  uint8_t unused : 1;
-  union {
-    uint16_t client_id; // CONNECTION_REPLY
-    uint8_t error_type; // ERROR
-  };
-};
-*/
-
 enum class packet_type : uint8_t {
   ACK = 0,
   CONNECTION_REQ = 1
@@ -52,22 +35,68 @@ enum error_type {
   NOT_MATCHING_PROTOCOL = 0
 };
 
-struct packet {
+/*
+enum class connection_state_type : uint8_t {
+  disconnected,
+  connecting,
+  connection_failed,
+  connected
+};
+*/
+
+struct packet_header {
   uint8_t  reliable; // 1
   uint32_t sequence; // 31
   uint32_t ack_sequence;
   uint16_t client_id;
 };
 
-class reliable_connection {
-  // std::queue<
+class connection {
+  // std::queue<> reliable_messages_buffer;
+  // std::queue<> unacked_reliable_messages;
   uint16_t client_id;
+  net *n;
+  uint32_t time_since_last_pong;
 public:
-  reliable_connection() {
+  connection() {
+    time_since_last_pong = 0;
     srand(time(nullptr));
     client_id = rand();
     printf("this client id is %d\n", client_id);
+    n = new net(receive);
   };
+  void poll(uint32_t time) {
+    n->poll();
+  };
+  void receive(uint8_t *buffer, size_t bytes_rx) {
+    print_packet(buffer, bytes_rx, "received packet");
+    switch ((buffer[0] & 0b11111110) >> 1) {
+      case (uint8_t)server_packet_type::ACK:
+        puts("type: ACK");
+        break;
+      case (uint8_t)server_packet_type::PONG:
+        puts("type: PONG");
+        time_since_last_pong = 0;
+        break;
+      case (uint8_t)server_packet_type::CONNECTION_REPLY:
+        puts("type: CONNECTION_REPLY");
+        // net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
+        // printf("assigned client id: %d\n", net_state.client_id);
+        break;
+      case (uint8_t)server_packet_type::ERROR:
+        puts("type: ERROR");
+        switch (buffer[1]) {
+          case NOT_MATCHING_PROTOCOL:
+            puts("type: NOT_MATCHING_PROTOCOL");
+            break;
+          default:
+            puts("unknown type");
+        }
+        break;
+      default:
+        puts("unknown type");
+    }
+  }
 };
 
 void send_connection_req(net *n);
