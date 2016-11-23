@@ -127,7 +127,7 @@ void mousemotion_event(float xrel, float yrel) {
 }
 
 void update(double dt, uint32_t t, screen *s) {
-  c->poll(t);
+  c->poll(dt);
 
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);

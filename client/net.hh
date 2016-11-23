@@ -11,9 +11,10 @@ class net {
   asio::ip::udp::endpoint _remote_endpoint;
   uint8_t _recv_buffer[max_msg_len];
   void start_receive();
-  void (*receive_cb)(uint8_t*, size_t);
+  void (*receive_cb)(void*, uint8_t*, size_t);
+  void *userdata;
 public:
-  net(void (*n_receive_cb)(uint8_t*, size_t));
+  net(void (*n_receive_cb)(void*, uint8_t*, size_t), void *n_userdata);
   void send(uint8_t *message, size_t len);
   void poll();
   void set_endpoint(std::string hostname);
@@ -56,48 +57,12 @@ class connection {
   // std::queue<> unacked_reliable_messages;
   uint16_t client_id;
   net *n;
-  uint32_t time_since_last_pong;
+  double ping_send_delay, internal_time_counter, time_since_last_pong;
+  void ping();
 public:
-  connection() {
-    time_since_last_pong = 0;
-    srand(time(nullptr));
-    client_id = rand();
-    printf("this client id is %d\n", client_id);
-    n = new net(receive);
-  };
-  void poll(uint32_t time) {
-    n->poll();
-  };
-  void receive(uint8_t *buffer, size_t bytes_rx) {
-    print_packet(buffer, bytes_rx, "received packet");
-    switch ((buffer[0] & 0b11111110) >> 1) {
-      case (uint8_t)server_packet_type::ACK:
-        puts("type: ACK");
-        break;
-      case (uint8_t)server_packet_type::PONG:
-        puts("type: PONG");
-        time_since_last_pong = 0;
-        break;
-      case (uint8_t)server_packet_type::CONNECTION_REPLY:
-        puts("type: CONNECTION_REPLY");
-        // net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
-        // printf("assigned client id: %d\n", net_state.client_id);
-        break;
-      case (uint8_t)server_packet_type::ERROR:
-        puts("type: ERROR");
-        switch (buffer[1]) {
-          case NOT_MATCHING_PROTOCOL:
-            puts("type: NOT_MATCHING_PROTOCOL");
-            break;
-          default:
-            puts("unknown type");
-        }
-        break;
-      default:
-        puts("unknown type");
-    }
-  }
+  connection();
+  void poll(double dt);
+  void receive_pong();
+  static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
 };
-
-void send_connection_req(net *n);
 

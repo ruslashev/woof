@@ -12,16 +12,18 @@ void net::start_receive() {
           printf("receive from %s:%d\n"
               , remote_endpoint.address().to_string().c_str()
               , remote_endpoint.port());
-          receive_cb(_recv_buffer, bytes_rx);
+          receive_cb(userdata, _recv_buffer, bytes_rx);
         }
         start_receive();
       });
 }
 
-net::net(void (*n_receive_cb)(uint8_t*, size_t))
+net::net(void (*n_receive_cb)(void*, uint8_t*, size_t)
+    , void *n_userdata = nullptr)
   : _io()
   , _socket(_io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port_client))
-  , receive_cb(n_receive_cb) {
+  , receive_cb(n_receive_cb)
+  , userdata(n_userdata) {
     set_endpoint("127.0.0.1");
     start_receive();
 }
@@ -45,6 +47,62 @@ void net::poll() {
 void net::set_endpoint(std::string hostname) {
   _remote_endpoint = asio::ip::udp::endpoint(
       asio::ip::address::from_string(hostname), port_serv);
+}
+
+void connection::ping() {
+  puts("ping");
+}
+
+connection::connection() : ping_send_delay(500), internal_time_counter(0)
+                           , time_since_last_pong(0) {
+  srand(time(nullptr));
+  client_id = rand();
+  printf("this client id is %d\n", client_id);
+  n = new net(receive, this);
+};
+
+void connection::poll(double dt) {
+  internal_time_counter += dt * 1000.0;
+  if (internal_time_counter > ping_send_delay) {
+    internal_time_counter -= ping_send_delay;
+    ping();
+  }
+  n->poll();
+};
+
+void connection::receive_pong() {
+  time_since_last_pong = 0;
+}
+
+void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
+  connection *c = (connection*)userdata;
+  print_packet(buffer, bytes_rx, "received packet");
+  switch ((buffer[0] & 0b11111110) >> 1) {
+    case (uint8_t)server_packet_type::ACK:
+      puts("type: ACK");
+      break;
+    case (uint8_t)server_packet_type::PONG:
+      puts("type: PONG");
+      c->receive_pong();
+      break;
+    case (uint8_t)server_packet_type::CONNECTION_REPLY:
+      puts("type: CONNECTION_REPLY");
+      // net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
+      // printf("assigned client id: %d\n", net_state.client_id);
+      break;
+    case (uint8_t)server_packet_type::ERROR:
+      puts("type: ERROR");
+      switch (buffer[1]) {
+        case NOT_MATCHING_PROTOCOL:
+          puts("type: NOT_MATCHING_PROTOCOL");
+          break;
+        default:
+          puts("unknown type");
+      }
+      break;
+    default:
+      puts("unknown type");
+  }
 }
 
 static uint32_t generate_sequence_number() {
