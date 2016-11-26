@@ -3,36 +3,28 @@
 #include <asio.hpp> // hton*
 
 void bytestream::write_uint32(uint32_t value) {
-  error_flag |= index + 4 > size;
-  if (error_flag)
-    return;
-  *((uint32_t*)(data + index)) = htonl(value);
+  data.resize(data.size() + 4);
+  *((uint32_t*)(data.data() + index)) = htonl(value);
   index += 4;
 }
 
 void bytestream::write_uint16(uint16_t value) {
-  error_flag |= index + 2 > size;
-  if (error_flag)
-    return;
-  *((uint16_t*)(data + index)) = htons(value);
+  data.resize(data.size() + 2);
+  *((uint16_t*)(data.data() + index)) = htons(value);
   index += 2;
 }
 
 void bytestream::write_uint8(uint8_t value) {
-  error_flag |= index + 1 > size;
-  if (error_flag)
-    return;
-  *(data + index) = value;
+  data.resize(data.size() + 1);
+  *(data.data() + index) = value;
   index += 1;
 }
 
-void bytestream::print() {
-  for (size_t i = 0; i < size; i++) {
-    int numbits = 8;
-    while (--numbits >= 0)
-      printf("%c", (data[i] & ((uint8_t)1 << numbits)) ? '1' : '0');
-    printf(" ");
-  }
-  printf("\n");
+void bytestream::print(const char *msg) {
+  print_packet(data.data(), data.size(), msg);
+}
+
+bytestream::bytestream() : index(0) {
+  data.reserve(128);
 }
 

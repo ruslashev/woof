@@ -1,6 +1,13 @@
 #include "net.hh"
 
+static uint32_t generate_sequence_number() {
+  static uint32_t seq = 0;
+  ++seq;
+  return seq;
+}
+
 void net::start_receive() {
+  // TODO: while (1) instead of recursion
   asio::ip::udp::endpoint remote_endpoint;
   _socket.async_receive_from(asio::buffer(_recv_buffer), remote_endpoint
       , [this, &remote_endpoint](const asio::error_code &e, size_t bytes_rx) {
@@ -49,26 +56,53 @@ void net::set_endpoint(std::string hostname) {
       asio::ip::address::from_string(hostname), port_serv);
 }
 
-void connection::ping() {
-  puts("ping");
+void ping_msg::serialize(bytestream &b) {
+  b.write_uint8((uint8_t)type);
 }
 
-connection::connection() : ping_send_delay(500), internal_time_counter(0)
-                           , time_since_last_pong(0) {
+void connection::ping() {
+  puts("ping");
+  ping_msg *p = new ping_msg;
+  p->type = message_type::PING;
+  unreliable_messages.push(p);
+}
+
+connection::connection() : ping_send_delay(1000), internal_time_counter(0)
+    , time_since_last_pong(0) {
   srand(time(nullptr));
   client_id = rand();
   printf("this client id is %d\n", client_id);
   n = new net(receive, this);
 };
 
-void connection::poll(double dt) {
+void connection::update(double dt) {
+  if (unreliable_messages.size())
+    printf("unreliable_messages: %zu\n", unreliable_messages.size());
+  packet_header packet;
+  packet.reliable = 0;
+  packet.sequence = generate_sequence_number();
+  packet.ack_sequence = 0;
+  packet.client_id = client_id;
+  packet.num_messages = 0;
+  for (size_t i = 0; unreliable_messages.size() && i < 5
+      && i < unreliable_messages.size(); i++) {
+    puts("putting message in the packet");
+    message *m = unreliable_messages.front();
+    ++packet.num_messages;
+    m->serialize(packet.serialized_messages);
+    unreliable_messages.pop();
+    // delete m;
+  }
+  if (packet.num_messages)
+    packet.serialized_messages.print("new packet is ready: ");
+
   internal_time_counter += dt * 1000.0;
   if (internal_time_counter > ping_send_delay) {
     internal_time_counter -= ping_send_delay;
     ping();
   }
   n->poll();
-};
+}
 
 void connection::receive_pong() {
   time_since_last_pong = 0;
@@ -78,22 +112,22 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   connection *c = (connection*)userdata;
   print_packet(buffer, bytes_rx, "received packet");
   switch ((buffer[0] & 0b11111110) >> 1) {
-    case (uint8_t)server_packet_type::ACK:
+    case (uint8_t)server_message_type::ACK:
       puts("type: ACK");
       break;
-    case (uint8_t)server_packet_type::PONG:
+    case (uint8_t)server_message_type::PONG:
       puts("type: PONG");
       c->receive_pong();
       break;
-    case (uint8_t)server_packet_type::CONNECTION_REPLY:
+    case (uint8_t)server_message_type::CONNECTION_REPLY:
       puts("type: CONNECTION_REPLY");
       // net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
       // printf("assigned client id: %d\n", net_state.client_id);
       break;
-    case (uint8_t)server_packet_type::ERROR:
+    case (uint8_t)server_message_type::ERROR:
       puts("type: ERROR");
       switch (buffer[1]) {
-        case NOT_MATCHING_PROTOCOL:
+        case (uint8_t)server_error_type::NOT_MATCHING_PROTOCOL:
           puts("type: NOT_MATCHING_PROTOCOL");
           break;
         default:
@@ -105,23 +139,7 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   }
 }
 
-static uint32_t generate_sequence_number() {
-  static uint32_t sn = 0;
-  ++sn;
-  return sn;
-}
+void connection::send() {
 
-void send_connection_req(net *n) {
-  /* type         : 7 bits  = CONNECTION_REQ
-   * reliable     : 1 bit   = 1
-   * sequence num : 32 bits = ...
-   * protocol_ver : 8 bits  = 1
-   */
-  uint8_t connection_req_packet_serialized[6] = { 0b00000011 };
-  const uint32_t rel_msg_id = htonl(generate_sequence_number());
-  *(uint32_t*)((uint8_t*)connection_req_packet_serialized + 1) = rel_msg_id;
-  *(uint8_t*)(connection_req_packet_serialized + 5) = 1;
-  print_packet(connection_req_packet_serialized, 6, "connection req");
-  n->send(connection_req_packet_serialized, 6);
 }
 

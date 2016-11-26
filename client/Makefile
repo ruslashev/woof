@@ -4,6 +4,6 @@ warnings = -Wall -Wextra -Wshadow -Wno-unused-parameter -Wno-unused-variable \
 flags = -g -std=c++0x
 
 default:
-	g++ main.cc screen.cc net.cc -o woof $(flags) -lSDL2 -lGLEW -lGL $(warnings)
+	g++ main.cc screen.cc net.cc bits.cc -o woof $(flags) -lSDL2 -lGLEW -lGL $(warnings)
 	./woof
 
