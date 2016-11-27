@@ -89,10 +89,6 @@ void load(screen *s) {
 
   player.pos_x = player.pos_y = player.rotation = 0;
 
-  bytestream b;
-  b.write_uint16(12345);
-  printf("bytestrem: ");
-  b.print();
   c = new connection();
 }
 
@@ -131,7 +127,7 @@ void mousemotion_event(float xrel, float yrel) {
 }
 
 void update(double dt, uint32_t t, screen *s) {
-  c->update(dt);
+  c->update(dt, t);
 
   sp->use_this_prog();
   glUniform1f(time_unif, (double)t / 1000.);

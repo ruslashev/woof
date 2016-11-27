@@ -1,11 +1,5 @@
 #include "net.hh"
 
-static uint32_t generate_sequence_number() {
-  static uint32_t seq = 0;
-  ++seq;
-  return seq;
-}
-
 void net::start_receive() {
   // TODO: while (1) instead of recursion
   asio::ip::udp::endpoint remote_endpoint;
@@ -58,40 +52,41 @@ void net::set_endpoint(std::string hostname) {
 
 void ping_msg::serialize(bytestream &b) {
   b.write_uint8((uint8_t)type);
+  b.write_uint32(time_sent);
 }
 
-void connection::ping() {
+void connection::ping(uint32_t t) {
   puts("ping");
-  ping_msg *p = new ping_msg;
-  p->type = message_type::PING;
-  unreliable_messages.push(p);
+  ping_msg p;
+  p.type = message_type::PING;
+  p.time_sent = t;
+  bytestream b;
+  p.serialize(b);
+  unreliable_messages.push(b);
 }
 
-connection::connection() : ping_send_delay(1000), internal_time_counter(0)
-    , time_since_last_pong(0) {
+connection::connection() : outgoing_sequence(1), ping_send_delay(1000)
+    , internal_time_counter(0), time_since_last_pong(0) {
   srand(time(nullptr));
   client_id = rand();
   printf("this client id is %d\n", client_id);
   n = new net(receive, this);
 };
 
-void connection::update(double dt) {
+void connection::update(double dt, uint32_t t) {
   if (unreliable_messages.size())
     printf("unreliable_messages: %zu\n", unreliable_messages.size());
   packet_header packet;
   packet.reliable = 0;
-  packet.sequence = generate_sequence_number();
+  packet.sequence = outgoing_sequence++;
   packet.ack_sequence = 0;
   packet.client_id = client_id;
   packet.num_messages = 0;
   for (size_t i = 0; unreliable_messages.size() && i < 5
       && i < unreliable_messages.size(); i++) {
-    puts("putting message in the packet");
-    message *m = unreliable_messages.front();
+    packet.serialized_messages.append(unreliable_messages.front());
     ++packet.num_messages;
-    m->serialize(packet.serialized_messages);
     unreliable_messages.pop();
-    // delete m;
   }
   if (packet.num_messages)
     packet.serialized_messages.print("new packet is ready: ");
@@ -99,7 +94,7 @@ void connection::update(double dt) {
   internal_time_counter += dt * 1000.0;
   if (internal_time_counter > ping_send_delay) {
     internal_time_counter -= ping_send_delay;
-    ping();
+    ping(t);
   }
   n->poll();
 }

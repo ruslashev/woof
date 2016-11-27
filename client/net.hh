@@ -62,20 +62,22 @@ struct message {
 };
 
 struct ping_msg : message {
+  uint32_t time_sent;
   void serialize(bytestream &b);
 };
 
 class connection {
   // std::queue<> reliable_messages_buffer;
   // std::queue<> sent_unacked_reliable_messages;
-  std::queue<message*> unreliable_messages;
+  std::queue<bytestream> unreliable_messages;
+  uint32_t outgoing_sequence;
   uint16_t client_id;
   net *n;
   double ping_send_delay, internal_time_counter, time_since_last_pong;
-  void ping();
+  void ping(uint32_t t);
 public:
   connection();
-  void update(double dt);
+  void update(double dt, uint32_t t);
   void receive_pong();
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send();

@@ -20,6 +20,14 @@ void bytestream::write_uint8(uint8_t value) {
   index += 1;
 }
 
+void bytestream::append(const bytestream &b) {
+  uint8_t *other_data = (uint8_t*)b.data.data();
+  size_t other_size = b.data.size();
+  data.resize(data.size() + other_size);
+  std::memcpy(data.data() + index, other_data, other_size);
+  index += other_size;
+}
+
 void bytestream::print(const char *msg) {
   print_packet(data.data(), data.size(), msg);
 }
