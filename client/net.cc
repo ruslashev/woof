@@ -50,12 +50,25 @@ void net::set_endpoint(std::string hostname) {
       asio::ip::address::from_string(hostname), port_serv);
 }
 
-void ping_msg::serialize(bytestream &b) {
-  b.write_uint8((uint8_t)type);
-  b.write_uint32(time_sent);
+void packet_header::serialize(bytestream &b) {
+  b.write_uint32(((reliable & 1) << 31) | sequence);
+  b.write_uint32(ack_sequence);
+  b.write_uint16(client_id);
+  b.write_uint8(num_messages);
+  b.append(serialized_messages);
 }
 
-void connection::ping(uint32_t t) {
+void ping_msg::serialize(bytestream &b) {
+  b.write_uint8((uint8_t)type);
+  b.write_uint32(htonl(time_sent));
+}
+
+void connection_req_msg::serialize(bytestream &b) {
+  b.write_uint8((uint8_t)type);
+  b.write_uint16(htons(protocol_ver));
+}
+
+void connection::ping() {
   puts("ping");
   ping_msg p;
   p.type = message_type::PING;
@@ -65,8 +78,18 @@ void connection::ping(uint32_t t) {
   unreliable_messages.push(b);
 }
 
+void connection::send_connection_req() {
+  connection_req_msg r;
+  r.type = message_type::CONNECTION_REQ;
+  r.protocol_ver = 1;
+  bytestream b;
+  r.serialize(b);
+  reliable_messages_buffer.push(b);
+}
+
 connection::connection() : outgoing_sequence(1), ping_send_delay(1000)
-    , internal_time_counter(0), time_since_last_pong(0) {
+    , internal_time_counter(0), time_since_last_pong(0)
+    , connection_state(connection_state_type::disconnected) {
   srand(time(nullptr));
   client_id = rand();
   printf("this client id is %d\n", client_id);
@@ -74,6 +97,7 @@ connection::connection() : outgoing_sequence(1), ping_send_delay(1000)
 };
 
 void connection::update(double dt, uint32_t t) {
+  this->t = t;
   if (unreliable_messages.size())
     printf("unreliable_messages: %zu\n", unreliable_messages.size());
   packet_header packet;
@@ -82,37 +106,56 @@ void connection::update(double dt, uint32_t t) {
   packet.ack_sequence = 0;
   packet.client_id = client_id;
   packet.num_messages = 0;
-  for (size_t i = 0; unreliable_messages.size() && i < 5
+  if (unreliable_messages.size() >= 64)
+    die("message buffer overflow");
+  if (reliable_messages_buffer.size() >= 64)
+    die("rel. message buffer overflow");
+  for (size_t i = 0; unreliable_messages.size()
       && i < unreliable_messages.size(); i++) {
     packet.serialized_messages.append(unreliable_messages.front());
     ++packet.num_messages;
     unreliable_messages.pop();
   }
-  if (packet.num_messages)
+  /*
+  for (size_t i = 0; reliable_messages_buffer.size()
+      && i < reliable_messages_buffer.size(); i++) {
+    packet.reliable = 1;
+    packet.serialized_messages.append(reliable_messages_buffer.front());
+    ++packet.num_messages;
+    reliable_messages_buffer.pop();
+  }
+  */
+  if (packet.num_messages) {
     packet.serialized_messages.print("new packet is ready: ");
+    bytestream pb;
+    packet.serialize(pb);
+    n->send(pb.data.data(), pb.data.size());
+  }
 
   internal_time_counter += dt * 1000.0;
   if (internal_time_counter > ping_send_delay) {
     internal_time_counter -= ping_send_delay;
-    ping(t);
+    ping();
   }
   n->poll();
 }
 
-void connection::receive_pong() {
+void connection::receive_pong(uint32_t time_sent) {
   time_since_last_pong = 0;
+  printf("time_sent: %d\n", time_sent);
+  printf("rtt: %d\n", t - time_sent);
 }
 
 void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   connection *c = (connection*)userdata;
   print_packet(buffer, bytes_rx, "received packet");
-  switch ((buffer[0] & 0b11111110) >> 1) {
+  switch (buffer[0]) {
     case (uint8_t)server_message_type::ACK:
       puts("type: ACK");
       break;
     case (uint8_t)server_message_type::PONG:
       puts("type: PONG");
-      c->receive_pong();
+      c->receive_pong((*((uint32_t*)(buffer + 1))));
       break;
     case (uint8_t)server_message_type::CONNECTION_REPLY:
       puts("type: CONNECTION_REPLY");

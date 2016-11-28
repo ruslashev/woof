@@ -9,13 +9,14 @@
 
 -define(PROTOCOL_VERSION, 1).
 
--define(PACKET_TYPE_ACK, 0).
--define(PACKET_TYPE_CONNECTION_REQ, 1).
+-define(MESSAGE_TYPE_ACK, 0).
+-define(MESSAGE_TYPE_PING, 1).
+-define(MESSAGE_TYPE_CONNECTION_REQ, 2).
 
--define(SERVER_PACKET_TYPE_ACK, 0).
--define(SERVER_PACKET_TYPE_PONG, 1).
--define(SERVER_PACKET_TYPE_CONNECTION_REPLY, 2).
--define(SERVER_PACKET_TYPE_ERROR, 3).
+-define(SERVER_MESSAGE_TYPE_ACK, 0).
+-define(SERVER_MESSAGE_TYPE_PONG, 1).
+-define(SERVER_MESSAGE_TYPE_CONNECTION_REPLY, 2).
+-define(SERVER_MESSAGE_TYPE_ERROR, 3).
 
 -define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
 
@@ -34,17 +35,17 @@ init([]) ->
 
 handle_info(InfoMsg, State = #server_state{ socket = Socket }) ->
     case InfoMsg of
-        { udp, _Socket, RemoteIp, RemotePort, Message } ->
+        { udp, _Socket, RemoteIp, RemotePort, Packet } ->
             ClientTuple = { Socket, RemoteIp, RemotePort },
-            wl:log("got message \"~p\" from ~p", [Message, ClientTuple]),
-            try handle_udp_message(ClientTuple, Message)
+            wl:log("got packet \"~p\" from ~p", [Packet, ClientTuple]),
+            try handle_udp_packet(ClientTuple, Packet, State)
             catch
-                error:{ badmatch, _ } -> wl:log("Malformed message");
-                _:Exc -> wl:log("Unhandled exception from handle_udp_message:"
+                error:{ badmatch, _ } -> wl:log("Malformed packet");
+                _:Exc -> wl:log("Unhandled exception from handle_udp_packet:"
                                 " ~p~n~p", [Exc, erlang:get_stacktrace()])
             end;
         Unknown ->
-            wl:log("unknown message \"~p\"", [Unknown])
+            wl:log("unknown packet \"~p\"", [Unknown])
     end,
     inet:setopts(Socket, [{ active, once }]),
     { noreply, State }.
@@ -67,27 +68,22 @@ terminate(Reason, State) ->
     wl:log("terminate reason: ~p~n", [Reason]),
     terminate(normal, State).
 
-handle_udp_message(ClientTuple, Message) ->
-    <<Type:7, _Reliable:1, Rest/binary>> = Message,
+handle_udp_packet(ClientTuple, Packet, State) ->
+    <<_Reliable:1, _IncomingSequence:31, _AckSequence:32, _ClientId:16,
+      NumMessages:8, Messages/binary>> = Packet,
+    handle_message(ClientTuple, NumMessages, Messages, State).
+
+handle_message(_, 0, _, _) -> ok;
+handle_message(ClientTuple, NumMessages, Messages, State) ->
+    <<Type:8, Rest/binary>> = Messages,
     case Type of
-        ?PACKET_TYPE_CONNECTION_REQ ->
-            <<_RelMsgId:32, ProtocolVersion:8>> = Rest,
-            case ProtocolVersion =:= 2 of
-                true ->
-                    NewClientId = 13435,
-                    wl:log("Connection req from client ~p. Its client id is now"
-                           " ~p", [ClientTuple, NewClientId]),
-                    send(ClientTuple, <<?SERVER_PACKET_TYPE_CONNECTION_REPLY:7,
-                                        1:1, NewClientId:16>>);
-                false ->
-                    wl:log("Connection req from client ~p. Its protocol version"
-                           " (~p) does equal current (~p)",
-                           [ClientTuple, ProtocolVersion, ?PROTOCOL_VERSION]),
-                    send(ClientTuple, <<?SERVER_PACKET_TYPE_ERROR:7, 1:1,
-                                        ?ERROR_TYPE_NOT_MATCHING_PROTOCOL:8>>)
-            end;
-        _ ->
-            wl:log("Bad message type ~p from client ~p", [Type, ClientTuple])
+        ?MESSAGE_TYPE_PING ->
+            <<TimeSent:32, RestMessages/binary>> = Rest,
+            send(ClientTuple, <<?SERVER_MESSAGE_TYPE_PONG:8, TimeSent:32>>),
+            handle_message(ClientTuple, NumMessages - 1, RestMessages, State);
+        ?MESSAGE_TYPE_CONNECTION_REQ ->
+            <<_ProtocolVer:16, RestMessages/binary>> = Rest,
+            handle_message(ClientTuple, NumMessages - 1, RestMessages, State)
     end.
 
 send({ Socket, RemoteIp, RemotePort }, Msg) ->

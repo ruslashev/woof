@@ -38,14 +38,12 @@ enum class server_error_type : uint8_t {
   NOT_MATCHING_PROTOCOL = 0
 };
 
-/*
 enum class connection_state_type : uint8_t {
   disconnected,
   connecting,
   connection_failed,
   connected
 };
-*/
 
 struct packet_header {
   uint8_t  reliable; // 1 bits
@@ -54,6 +52,7 @@ struct packet_header {
   uint16_t client_id;
   uint8_t  num_messages;
   bytestream serialized_messages;
+  void serialize(bytestream &b);
 };
 
 struct message {
@@ -66,19 +65,27 @@ struct ping_msg : message {
   void serialize(bytestream &b);
 };
 
+struct connection_req_msg : message {
+  uint16_t protocol_ver;
+  void serialize(bytestream &b);
+};
+
 class connection {
-  // std::queue<> reliable_messages_buffer;
   // std::queue<> sent_unacked_reliable_messages;
+  std::queue<bytestream> reliable_messages_buffer;
   std::queue<bytestream> unreliable_messages;
   uint32_t outgoing_sequence;
   uint16_t client_id;
   net *n;
   double ping_send_delay, internal_time_counter, time_since_last_pong;
-  void ping(uint32_t t);
+  connection_state_type connection_state;
+  void ping();
+  void send_connection_req();
+  uint32_t t;
 public:
   connection();
   void update(double dt, uint32_t t);
-  void receive_pong();
+  void receive_pong(uint32_t time_sent);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send();
 };
