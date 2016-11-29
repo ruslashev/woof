@@ -2,6 +2,14 @@
 #include "utils.hh" // assertf
 #include <asio.hpp> // hton*
 
+uint8_t* bytestream::get_data() {
+  return data.data();
+}
+
+size_t bytestream::get_size() {
+  return data.size();
+}
+
 void bytestream::write_uint32(uint32_t value) {
   data.resize(data.size() + 4);
   *((uint32_t*)(data.data() + index)) = htonl(value);
@@ -26,6 +34,15 @@ void bytestream::append(const bytestream &b) {
   data.resize(data.size() + other_size);
   std::memcpy(data.data() + index, other_data, other_size);
   index += other_size;
+}
+
+void bytestream::clear() {
+  data.clear();
+  index = 0;
+}
+
+bool bytestream::empty() {
+  return data.empty();
 }
 
 void bytestream::print(const char *msg) {

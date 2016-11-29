@@ -84,7 +84,7 @@ void connection::send_connection_req() {
   r.protocol_ver = 1;
   bytestream b;
   r.serialize(b);
-  reliable_messages_buffer.push(b);
+  reliable_messages.push(b);
 }
 
 connection::connection() : outgoing_sequence(1), ping_send_delay(1000)
@@ -108,7 +108,7 @@ void connection::update(double dt, uint32_t t) {
   packet.num_messages = 0;
   if (unreliable_messages.size() >= 64)
     die("message buffer overflow");
-  if (reliable_messages_buffer.size() >= 64)
+  if (reliable_messages.size() >= 64)
     die("rel. message buffer overflow");
   for (size_t i = 0; unreliable_messages.size()
       && i < unreliable_messages.size(); i++) {
@@ -116,20 +116,22 @@ void connection::update(double dt, uint32_t t) {
     ++packet.num_messages;
     unreliable_messages.pop();
   }
-  /*
-  for (size_t i = 0; reliable_messages_buffer.size()
-      && i < reliable_messages_buffer.size(); i++) {
-    packet.reliable = 1;
-    packet.serialized_messages.append(reliable_messages_buffer.front());
-    ++packet.num_messages;
-    reliable_messages_buffer.pop();
+  if (unacked_reliable_messages.empty()) {
+    for (size_t i = 0; reliable_messages.size()
+        && i < reliable_messages.size(); i++) {
+      packet.reliable = 1;
+      unacked_reliable_messages.append(reliable_messages.front());
+      ++packet.num_messages;
+      reliable_messages.pop();
+    }
+    packet.serialized_messages.append(unacked_reliable_messages);
   }
-  */
   if (packet.num_messages) {
-    packet.serialized_messages.print("new packet is ready: ");
+    printf("reliable: %d, ", packet.reliable);
+    packet.serialized_messages.print("new packet");
     bytestream pb;
     packet.serialize(pb);
-    n->send(pb.data.data(), pb.data.size());
+    n->send(pb.get_data(), pb.get_size());
   }
 
   internal_time_counter += dt * 1000.0;

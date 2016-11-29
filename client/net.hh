@@ -71,8 +71,8 @@ struct connection_req_msg : message {
 };
 
 class connection {
-  // std::queue<> sent_unacked_reliable_messages;
-  std::queue<bytestream> reliable_messages_buffer;
+  bytestream unacked_reliable_messages;
+  std::queue<bytestream> reliable_messages;
   std::queue<bytestream> unreliable_messages;
   uint32_t outgoing_sequence;
   uint16_t client_id;
