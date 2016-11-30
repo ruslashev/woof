@@ -60,7 +60,7 @@ void packet_header::serialize(bytestream &b) {
 
 void ping_msg::serialize(bytestream &b) {
   b.write_uint8((uint8_t)type);
-  b.write_uint32(htonl(time_sent));
+  b.write_uint32(htonl(time_sent_ms));
 }
 
 void connection_req_msg::serialize(bytestream &b) {
@@ -72,7 +72,8 @@ void connection::ping() {
   puts("ping");
   ping_msg p;
   p.type = message_type::PING;
-  p.time_sent = t;
+  p.time_sent_ms = std::lround(_time * 1000.);
+  printf("p.time_sent_ms=%d\n", p.time_sent_ms);
   bytestream b;
   p.serialize(b);
   unreliable_messages.push(b);
@@ -87,8 +88,8 @@ void connection::send_connection_req() {
   reliable_messages.push(b);
 }
 
-connection::connection() : outgoing_sequence(1), ping_send_delay(1000)
-    , internal_time_counter(0), time_since_last_pong(0)
+connection::connection() : outgoing_sequence(1), ping_send_delay_ms(1250)
+    , ping_time_counter_ms(0), time_since_last_pong(0)
     , connection_state(connection_state_type::disconnected) {
   srand(time(nullptr));
   client_id = rand();
@@ -96,8 +97,9 @@ connection::connection() : outgoing_sequence(1), ping_send_delay(1000)
   n = new net(receive, this);
 };
 
-void connection::update(double dt, uint32_t t) {
-  this->t = t;
+void connection::update(double dt, double t) {
+  _time = t;
+
   if (unreliable_messages.size())
     printf("unreliable_messages: %zu\n", unreliable_messages.size());
   packet_header packet;
@@ -134,18 +136,18 @@ void connection::update(double dt, uint32_t t) {
     n->send(pb.get_data(), pb.get_size());
   }
 
-  internal_time_counter += dt * 1000.0;
-  if (internal_time_counter > ping_send_delay) {
-    internal_time_counter -= ping_send_delay;
+  ping_time_counter_ms += dt * 1000.;
+  if (ping_time_counter_ms > ping_send_delay_ms) {
     ping();
+    ping_time_counter_ms -= ping_send_delay_ms;
   }
   n->poll();
 }
 
-void connection::receive_pong(uint32_t time_sent) {
+void connection::receive_pong(uint32_t time_sent_ms) {
   time_since_last_pong = 0;
-  printf("time_sent: %d\n", time_sent);
-  printf("rtt: %d\n", t - time_sent);
+  printf("recv time_sent_ms=%d\n", time_sent_ms);
+  printf("rtt: %d ms\n", (uint32_t)std::lround(_time * 1000.) - time_sent_ms);
 }
 
 void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {

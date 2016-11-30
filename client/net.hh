@@ -61,7 +61,7 @@ struct message {
 };
 
 struct ping_msg : message {
-  uint32_t time_sent;
+  uint32_t time_sent_ms;
   void serialize(bytestream &b);
 };
 
@@ -77,15 +77,15 @@ class connection {
   uint32_t outgoing_sequence;
   uint16_t client_id;
   net *n;
-  double ping_send_delay, internal_time_counter, time_since_last_pong;
+  double ping_send_delay_ms, ping_time_counter_ms, time_since_last_pong;
   connection_state_type connection_state;
   void ping();
   void send_connection_req();
-  uint32_t t;
+  double _time;
 public:
   connection();
-  void update(double dt, uint32_t t);
-  void receive_pong(uint32_t time_sent);
+  void update(double dt, double t);
+  void receive_pong(uint32_t time_sent_ms);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send();
 };

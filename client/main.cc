@@ -126,11 +126,11 @@ void mousemotion_event(float xrel, float yrel) {
     , mouse_dx = xrel * sensitivity * m_yaw;
 }
 
-void update(double dt, uint32_t t, screen *s) {
+void update(double dt, double t, screen *s) {
   c->update(dt, t);
 
   sp->use_this_prog();
-  glUniform1f(time_unif, (double)t / 1000.);
+  glUniform1f(time_unif, t);
   sp->dont_use_this_prog();
 }
 
@@ -152,7 +152,7 @@ void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
   sp->dont_use_this_prog();
 }
 
-void draw() {
+void draw(double alpha) {
   glClear(GL_COLOR_BUFFER_BIT);
 
   draw_square(glm::vec2(400 + player.pos_x, 225 + player.pos_y)

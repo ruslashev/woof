@@ -1,6 +1,10 @@
 #include "screen.hh"
 #include "utils.hh"
 
+inline double screen::get_hires_time_in_seconds() {
+  return SDL_GetTicks() / 1000.;
+}
+
 screen::screen(int n_window_width, int n_window_height)
   : window_width(n_window_width), window_height(n_window_height) {
   SDL_Init(SDL_INIT_EVERYTHING);
@@ -41,53 +45,64 @@ static inline char sdlkey_to_char(const SDL_Keycode &kc) {
 void screen::mainloop(void (*load_cb)(screen*)
     , void (*key_event_cb)(char, bool)
     , void (*mousemotion_event_cb)(float, float)
-    , void (*update_cb)(double, uint32_t, screen*)
-    , void (*draw_cb)(void)
+    , void (*update_cb)(double, double, screen*)
+    , void (*draw_cb)(double)
     , void (*cleanup_cb)(void)) {
   load_cb(this);
 
-  uint32_t simtime = 0;
-  uint64_t totalframes = 0;
-  int updatecount = 0;
+  const int ticks_per_second = 60, max_update_ticks = 5;
+  // everywhere all time is measured in seconds unless otherwise stated
+  double t = 0, dt = 1. / ticks_per_second;
+  double current_time = get_hires_time_in_seconds(), accumulator = 0;
+
+  uint64_t total_frames = 0;
+  int draw_count = 0;
 
   while (running) {
-    uint32_t real_time = SDL_GetTicks();
+    double real_time = get_hires_time_in_seconds()
+      , elapsed = real_time - current_time;
+    elapsed = std::min(elapsed, 5 * dt);
+    current_time = real_time;
+    accumulator += elapsed;
 
-    { // events
-      SDL_Event sdl_event;
-      while (SDL_PollEvent(&sdl_event) != 0)
-        if (sdl_event.type == SDL_QUIT)
-          running = false;
-        else if ((sdl_event.type == SDL_KEYDOWN || sdl_event.type == SDL_KEYUP)
-            && sdl_event.key.repeat == 0) {
-          const char key_info = sdlkey_to_char(sdl_event.key.keysym.sym);
-          if (key_info != -1)
-            key_event_cb(key_info, sdl_event.type == SDL_KEYDOWN);
-        } else if (sdl_event.type == SDL_MOUSEMOTION)
-          mousemotion_event_cb(sdl_event.motion.xrel, sdl_event.motion.yrel);
+    while (accumulator >= dt) {
+      { // events
+        SDL_Event sdl_event;
+        while (SDL_PollEvent(&sdl_event) != 0)
+          if (sdl_event.type == SDL_QUIT)
+            running = false;
+          else if ((sdl_event.type == SDL_KEYDOWN || sdl_event.type == SDL_KEYUP)
+              && sdl_event.key.repeat == 0) {
+            const char key_info = sdlkey_to_char(sdl_event.key.keysym.sym);
+            if (key_info != -1)
+              key_event_cb(key_info, sdl_event.type == SDL_KEYDOWN);
+          } else if (sdl_event.type == SDL_MOUSEMOTION)
+            mousemotion_event_cb(sdl_event.motion.xrel, sdl_event.motion.yrel);
+      }
+
+      update_cb(dt, t, this);
+
+      t += dt;
+      accumulator -= dt;
     }
 
-    while (simtime < real_time) {
-      simtime += 16;
-
-      update_cb(16. / 1000., simtime, this);
-    }
-
-    draw_cb();
+    double alpha = accumulator / dt;
+    draw_cb(alpha);
 
     SDL_GL_SwapWindow(_window);
 
     { // fps counter
-      totalframes++;
-      updatecount++;
-      if (updatecount == 20) {
-        updatecount = 0;
-        uint32_t ticks_per_frame = SDL_GetTicks() - real_time;
-        double fps = 1. / ((double)ticks_per_frame / 1000.)
-          , fpsavg = (double)totalframes / ((double)SDL_GetTicks() / 1000.0);
+      total_frames++;
+      draw_count++;
+      if (draw_count == 20) {
+        draw_count = 0;
+        double seconds_per_frame = get_hires_time_in_seconds() - real_time
+          , fps = 1. / seconds_per_frame
+          , fpsavg = (double)total_frames / get_hires_time_in_seconds()
+          , mspf = seconds_per_frame * 1000.;
         char title[256];
-        snprintf(title, 256, "vfk | %2d ms/frame - %7.2f frames/s - %7.2f frames/s "
-            "avg", ticks_per_frame, fps, fpsavg);
+        snprintf(title, 256, "woof | %7.2f ms/frame, %7.2f frames/s, %7.2f "
+            "frames/s avg", mspf, fps, fpsavg);
         SDL_SetWindowTitle(_window, title);
       }
     }
