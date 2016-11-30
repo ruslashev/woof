@@ -1,8 +1,8 @@
 #pragma once
-#include <asio.hpp>
-#include "utils.hh"
 #include "bits.hh"
+#include "screen.hh"
 #include <queue>
+#include <asio.hpp>
 
 static const int port_serv = 2711, port_client = 2710, max_msg_len = 256;
 
@@ -79,11 +79,12 @@ class connection {
   net *n;
   double ping_send_delay_ms, ping_time_counter_ms, time_since_last_pong;
   connection_state_type connection_state;
+  screen *s; // for getting time
   void ping();
   void send_connection_req();
-  double _time;
 public:
-  connection();
+  connection(screen *n_s);
+  void poll();
   void update(double dt, double t);
   void receive_pong(uint32_t time_sent_ms);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);

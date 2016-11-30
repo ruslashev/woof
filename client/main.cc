@@ -1,7 +1,7 @@
+#include "net.hh"
 #include "ogl.hh"
 #include "screen.hh"
 #include "utils.hh"
-#include "net.hh"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
@@ -89,7 +89,7 @@ void load(screen *s) {
 
   player.pos_x = player.pos_y = player.rotation = 0;
 
-  c = new connection();
+  c = new connection(s);
 }
 
 void key_event(char key, bool down) {

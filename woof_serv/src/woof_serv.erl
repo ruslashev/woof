@@ -37,7 +37,7 @@ handle_info(InfoMsg, State = #server_state{ socket = Socket }) ->
     case InfoMsg of
         { udp, _Socket, RemoteIp, RemotePort, Packet } ->
             ClientTuple = { Socket, RemoteIp, RemotePort },
-            wl:log("got packet \"~p\" from ~p", [Packet, ClientTuple]),
+            wl:log("got packet \"~p\"~nfrom ~p", [Packet, ClientTuple]),
             try handle_udp_packet(ClientTuple, Packet, State)
             catch
                 error:{ badmatch, _ } -> wl:log("Malformed packet");

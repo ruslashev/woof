@@ -11,7 +11,6 @@ struct key_binder {
 class screen {
   SDL_Window *_window;
   SDL_GLContext _gl_context;
-  inline double get_hires_time_in_seconds();
 public:
   int window_width, window_height;
   bool running;
@@ -25,5 +24,6 @@ public:
       , void (*cleanup_cb)(void));
   void lock_mouse();
   void unlock_mouse();
+  double get_time_in_seconds();
 };
 

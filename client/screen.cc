@@ -1,10 +1,6 @@
 #include "screen.hh"
 #include "utils.hh"
 
-inline double screen::get_hires_time_in_seconds() {
-  return SDL_GetTicks() / 1000.;
-}
-
 screen::screen(int n_window_width, int n_window_height)
   : window_width(n_window_width), window_height(n_window_height) {
   SDL_Init(SDL_INIT_EVERYTHING);
@@ -53,15 +49,15 @@ void screen::mainloop(void (*load_cb)(screen*)
   const int ticks_per_second = 60, max_update_ticks = 5;
   // everywhere all time is measured in seconds unless otherwise stated
   double t = 0, dt = 1. / ticks_per_second;
-  double current_time = get_hires_time_in_seconds(), accumulator = 0;
+  double current_time = get_time_in_seconds(), accumulator = 0;
 
   uint64_t total_frames = 0;
   int draw_count = 0;
 
   while (running) {
-    double real_time = get_hires_time_in_seconds()
+    double real_time = get_time_in_seconds()
       , elapsed = real_time - current_time;
-    elapsed = std::min(elapsed, 5 * dt);
+    elapsed = std::min(elapsed, max_update_ticks * dt);
     current_time = real_time;
     accumulator += elapsed;
 
@@ -86,8 +82,7 @@ void screen::mainloop(void (*load_cb)(screen*)
       accumulator -= dt;
     }
 
-    double alpha = accumulator / dt;
-    draw_cb(alpha);
+    draw_cb(accumulator / dt);
 
     SDL_GL_SwapWindow(_window);
 
@@ -96,9 +91,9 @@ void screen::mainloop(void (*load_cb)(screen*)
       draw_count++;
       if (draw_count == 20) {
         draw_count = 0;
-        double seconds_per_frame = get_hires_time_in_seconds() - real_time
+        double seconds_per_frame = get_time_in_seconds() - real_time
           , fps = 1. / seconds_per_frame
-          , fpsavg = (double)total_frames / get_hires_time_in_seconds()
+          , fpsavg = (double)total_frames / get_time_in_seconds()
           , mspf = seconds_per_frame * 1000.;
         char title[256];
         snprintf(title, 256, "woof | %7.2f ms/frame, %7.2f frames/s, %7.2f "
@@ -117,5 +112,9 @@ void screen::lock_mouse() {
 
 void screen::unlock_mouse() {
   SDL_SetRelativeMouseMode(SDL_FALSE);
+}
+
+inline double screen::get_time_in_seconds() {
+  return SDL_GetTicks() / 1000.;
 }
 

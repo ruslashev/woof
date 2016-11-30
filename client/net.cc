@@ -1,4 +1,6 @@
 #include "net.hh"
+#include "utils.hh"
+#include <thread>
 
 void net::start_receive() {
   // TODO: while (1) instead of recursion
@@ -42,7 +44,11 @@ void net::send(uint8_t *message, size_t len) {
 }
 
 void net::poll() {
-  _io.poll();
+  // _io.run();
+  asio::io_service::work work(_io);
+  std::thread polling_thread([&](){ while (1) { _io.run(); } });
+  _io.stop();
+  polling_thread.join();
 }
 
 void net::set_endpoint(std::string hostname) {
@@ -69,11 +75,9 @@ void connection_req_msg::serialize(bytestream &b) {
 }
 
 void connection::ping() {
-  puts("ping");
   ping_msg p;
   p.type = message_type::PING;
-  p.time_sent_ms = std::lround(_time * 1000.);
-  printf("p.time_sent_ms=%d\n", p.time_sent_ms);
+  p.time_sent_ms = std::lround(s->get_time_in_seconds() * 1000.);
   bytestream b;
   p.serialize(b);
   unreliable_messages.push(b);
@@ -88,18 +92,17 @@ void connection::send_connection_req() {
   reliable_messages.push(b);
 }
 
-connection::connection() : outgoing_sequence(1), ping_send_delay_ms(1250)
+connection::connection(screen *n_s) : outgoing_sequence(1), ping_send_delay_ms(1250)
     , ping_time_counter_ms(0), time_since_last_pong(0)
-    , connection_state(connection_state_type::disconnected) {
+    , connection_state(connection_state_type::disconnected), s(n_s) {
   srand(time(nullptr));
   client_id = rand();
   printf("this client id is %d\n", client_id);
   n = new net(receive, this);
+  n->poll();
 };
 
 void connection::update(double dt, double t) {
-  _time = t;
-
   if (unreliable_messages.size())
     printf("unreliable_messages: %zu\n", unreliable_messages.size());
   packet_header packet;
@@ -141,13 +144,13 @@ void connection::update(double dt, double t) {
     ping();
     ping_time_counter_ms -= ping_send_delay_ms;
   }
-  n->poll();
 }
 
 void connection::receive_pong(uint32_t time_sent_ms) {
   time_since_last_pong = 0;
   printf("recv time_sent_ms=%d\n", time_sent_ms);
-  printf("rtt: %d ms\n", (uint32_t)std::lround(_time * 1000.) - time_sent_ms);
+  uint32_t curr_ms = std::lround(s->get_time_in_seconds() * 1000.);
+  printf("rtt: %d ms\n", curr_ms - time_sent_ms);
 }
 
 void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
