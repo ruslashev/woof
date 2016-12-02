@@ -1,6 +1,5 @@
 #include "net.hh"
 #include "utils.hh"
-#include <thread>
 
 void net::start_receive() {
   // TODO: while (1) instead of recursion
@@ -21,14 +20,13 @@ void net::start_receive() {
       });
 }
 
-net::net(void (*n_receive_cb)(void*, uint8_t*, size_t)
+net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
     , void *n_userdata = nullptr)
-  : _io()
-  , _socket(_io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port_client))
+  : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port_client))
   , receive_cb(n_receive_cb)
   , userdata(n_userdata) {
-    set_endpoint("127.0.0.1");
-    start_receive();
+  set_endpoint("127.0.0.1");
+  start_receive();
 }
 
 void net::send(uint8_t *message, size_t len) {
@@ -44,11 +42,9 @@ void net::send(uint8_t *message, size_t len) {
 }
 
 void net::poll() {
+  // puts("net poll start");
   // _io.run();
-  asio::io_service::work work(_io);
-  std::thread polling_thread([&](){ while (1) { _io.run(); } });
-  _io.stop();
-  polling_thread.join();
+  // puts("net poll end");
 }
 
 void net::set_endpoint(std::string hostname) {
@@ -92,15 +88,27 @@ void connection::send_connection_req() {
   reliable_messages.push(b);
 }
 
-connection::connection(screen *n_s) : outgoing_sequence(1), ping_send_delay_ms(1250)
-    , ping_time_counter_ms(0), time_since_last_pong(0)
-    , connection_state(connection_state_type::disconnected), s(n_s) {
+connection::connection(screen *n_s)
+  : _io()
+  , _io_work(_io)
+  , _net_poll([&] {
+      _io.run();
+    })
+  , _n(_io, receive, this)
+  , outgoing_sequence(1)
+  , ping_send_delay_ms(1250)
+  , ping_time_counter_ms(0)
+  , time_since_last_pong(0)
+  , connection_state(connection_state_type::disconnected)
+  , s(n_s) {
   srand(time(nullptr));
   client_id = rand();
   printf("this client id is %d\n", client_id);
-  n = new net(receive, this);
-  n->poll();
-};
+}
+
+connection::~connection() {
+  _io.stop();
+}
 
 void connection::update(double dt, double t) {
   if (unreliable_messages.size())
@@ -136,7 +144,7 @@ void connection::update(double dt, double t) {
     packet.serialized_messages.print("new packet");
     bytestream pb;
     packet.serialize(pb);
-    n->send(pb.get_data(), pb.get_size());
+    _n.send(pb.get_data(), pb.get_size());
   }
 
   ping_time_counter_ms += dt * 1000.;

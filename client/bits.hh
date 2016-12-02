@@ -5,8 +5,8 @@
 #include <vector>
 
 class bytestream {
-  size_t index;
-  std::vector<uint8_t> data;
+  size_t _index;
+  std::vector<uint8_t> _data;
 public:
   uint8_t* get_data();
   size_t get_size();

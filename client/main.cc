@@ -169,9 +169,15 @@ void cleanup() {
 }
 
 int main() {
-  screen s(800, 450);
+  try {
+    screen s(800, 450);
 
-  s.mainloop(load, key_event, mousemotion_event, update, draw, cleanup);
+    s.mainloop(load, key_event, mousemotion_event, update, draw, cleanup);
+  } catch (const std::exception &e) {
+    die("exception exit: %s", e.what());
+  } catch (...) {
+    die("unknown exception exit");
+  }
 
   return 0;
 }

@@ -1,13 +1,13 @@
 #pragma once
 #include "bits.hh"
 #include "screen.hh"
-#include <queue>
 #include <asio.hpp>
+#include <queue>
+#include <thread>
 
 static const int port_serv = 2711, port_client = 2710, max_msg_len = 256;
 
 class net {
-  asio::io_service _io;
   asio::ip::udp::socket _socket;
   asio::ip::udp::endpoint _remote_endpoint;
   uint8_t _recv_buffer[max_msg_len];
@@ -15,7 +15,8 @@ class net {
   void (*receive_cb)(void*, uint8_t*, size_t);
   void *userdata;
 public:
-  net(void (*n_receive_cb)(void*, uint8_t*, size_t), void *n_userdata);
+  net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
+      , void *n_userdata);
   void send(uint8_t *message, size_t len);
   void poll();
   void set_endpoint(std::string hostname);
@@ -71,19 +72,24 @@ struct connection_req_msg : message {
 };
 
 class connection {
+  asio::io_service _io;
+  asio::io_service::work _io_work;
+  std::thread _net_poll;
+  net _n;
   bytestream unacked_reliable_messages;
   std::queue<bytestream> reliable_messages;
   std::queue<bytestream> unreliable_messages;
   uint32_t outgoing_sequence;
   uint16_t client_id;
-  net *n;
   double ping_send_delay_ms, ping_time_counter_ms, time_since_last_pong;
   connection_state_type connection_state;
   screen *s; // for getting time
+
   void ping();
   void send_connection_req();
 public:
   connection(screen *n_s);
+  ~connection();
   void poll();
   void update(double dt, double t);
   void receive_pong(uint32_t time_sent_ms);
