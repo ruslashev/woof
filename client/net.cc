@@ -41,12 +41,6 @@ void net::send(uint8_t *message, size_t len) {
       });
 }
 
-void net::poll() {
-  // puts("net poll start");
-  // _io.run();
-  // puts("net poll end");
-}
-
 void net::set_endpoint(std::string hostname) {
   _remote_endpoint = asio::ip::udp::endpoint(
       asio::ip::address::from_string(hostname), port_serv);
@@ -90,9 +84,18 @@ void connection::send_connection_req() {
 
 connection::connection(screen *n_s)
   : _io()
-  , _io_work(_io)
-  , _net_poll([&] {
-      _io.run();
+  , _net_io_thread([&] {
+      while (!_io.stopped()) {
+        puts("runnin");
+        try {
+          _io.run();
+        } catch (const std::exception& e) {
+          die("network exception: %s", e.what());
+        } catch (...) {
+          die("unknown network exception");
+        }
+      }
+      puts("net thread stop");
     })
   , _n(_io, receive, this)
   , outgoing_sequence(1)
@@ -108,56 +111,58 @@ connection::connection(screen *n_s)
 
 connection::~connection() {
   _io.stop();
+  _net_io_thread.join();
 }
 
 void connection::update(double dt, double t) {
-  if (unreliable_messages.size())
-    printf("unreliable_messages: %zu\n", unreliable_messages.size());
-  packet_header packet;
-  packet.reliable = 0;
-  packet.sequence = outgoing_sequence++;
-  packet.ack_sequence = 0;
-  packet.client_id = client_id;
-  packet.num_messages = 0;
-  if (unreliable_messages.size() >= 64)
-    die("message buffer overflow");
-  if (reliable_messages.size() >= 64)
-    die("rel. message buffer overflow");
-  for (size_t i = 0; unreliable_messages.size()
-      && i < unreliable_messages.size(); i++) {
-    packet.serialized_messages.append(unreliable_messages.front());
-    ++packet.num_messages;
-    unreliable_messages.pop();
-  }
-  if (unacked_reliable_messages.empty()) {
-    for (size_t i = 0; reliable_messages.size()
-        && i < reliable_messages.size(); i++) {
-      packet.reliable = 1;
-      unacked_reliable_messages.append(reliable_messages.front());
-      ++packet.num_messages;
-      reliable_messages.pop();
-    }
-    packet.serialized_messages.append(unacked_reliable_messages);
-  }
-  if (packet.num_messages) {
-    printf("reliable: %d, ", packet.reliable);
-    packet.serialized_messages.print("new packet");
-    bytestream pb;
-    packet.serialize(pb);
-    _n.send(pb.get_data(), pb.get_size());
-  }
+  puts("u");
 
   ping_time_counter_ms += dt * 1000.;
   if (ping_time_counter_ms > ping_send_delay_ms) {
     ping();
     ping_time_counter_ms -= ping_send_delay_ms;
   }
+
+  if (unreliable_messages.size() >= 64)
+    die("message buffer overflow");
+  if (reliable_messages.size() >= 64)
+    die("rel. message buffer overflow");
+  if (unreliable_messages.size() + reliable_messages.size()) {
+    packet_header packet;
+    packet.reliable = 0;
+    packet.sequence = outgoing_sequence++;
+    packet.ack_sequence = 0;
+    packet.client_id = client_id;
+    packet.num_messages = 0;
+    for (size_t i = 0; unreliable_messages.size()
+        && i < unreliable_messages.size(); i++) {
+      packet.serialized_messages.append(unreliable_messages.front());
+      ++packet.num_messages;
+      unreliable_messages.pop();
+    }
+    if (unacked_reliable_messages.empty()) {
+      for (size_t i = 0; reliable_messages.size()
+          && i < reliable_messages.size(); i++) {
+        packet.reliable = 1;
+        unacked_reliable_messages.append(reliable_messages.front());
+        ++packet.num_messages;
+        reliable_messages.pop();
+      }
+      packet.serialized_messages.append(unacked_reliable_messages);
+    }
+    printf("reliable: %d, ", packet.reliable);
+    packet.serialized_messages.print("new packet");
+    bytestream pb;
+    packet.serialize(pb);
+    _n.send(pb.get_data(), pb.get_size());
+  }
 }
 
 void connection::receive_pong(uint32_t time_sent_ms) {
   time_since_last_pong = 0;
-  printf("recv time_sent_ms=%d\n", time_sent_ms);
   uint32_t curr_ms = std::lround(s->get_time_in_seconds() * 1000.);
+  printf("RECV time_sent_ms=%d\n", time_sent_ms);
+  printf("CURR curr_ms=%d\n", curr_ms);
   printf("rtt: %d ms\n", curr_ms - time_sent_ms);
 }
 
