@@ -1,5 +1,6 @@
 #include "net.hh"
 #include "utils.hh"
+#include <limits> // std::numeric_limits
 
 void net::start_receive() {
   // TODO: while (1) instead of recursion
@@ -48,15 +49,26 @@ void net::set_endpoint(std::string hostname) {
 
 void packet_header::serialize(bytestream &b) {
   b.write_uint32(((reliable & 1) << 31) | sequence);
-  b.write_uint32(ack_sequence);
+  b.write_uint32(ack);
   b.write_uint16(client_id);
   b.write_uint8(num_messages);
   b.append(serialized_messages);
 }
 
+message::message(message_type n_type) : type(n_type) {
+}
+
+ping_msg::ping_msg() : message(message_type::PING)
+  , time_sent_ms(std::numeric_limits<uint32_t>::max()) {
+}
+
 void ping_msg::serialize(bytestream &b) {
   b.write_uint8((uint8_t)type);
   b.write_uint32(htonl(time_sent_ms));
+}
+
+connection_req_msg::connection_req_msg() : message(message_type::CONNECTION_REQ)
+  , protocol_ver(1) {
 }
 
 void connection_req_msg::serialize(bytestream &b) {
@@ -67,26 +79,23 @@ void connection_req_msg::serialize(bytestream &b) {
 void connection::ping() {
   ping_msg p;
   p.type = message_type::PING;
-  p.time_sent_ms = std::lround(s->get_time_in_seconds() * 1000.);
+  p.time_sent_ms = std::lround(_s->get_time_in_seconds() * 1000.);
   bytestream b;
   p.serialize(b);
-  unreliable_messages.push(b);
+  _unreliable_messages.push(b);
 }
 
 void connection::send_connection_req() {
   connection_req_msg r;
-  r.type = message_type::CONNECTION_REQ;
-  r.protocol_ver = 1;
   bytestream b;
   r.serialize(b);
-  reliable_messages.push(b);
+  _reliable_messages.push(b);
 }
 
 connection::connection(screen *n_s)
   : _io()
   , _net_io_thread([&] {
       while (!_io.stopped()) {
-        puts("runnin");
         try {
           _io.run();
         } catch (const std::exception& e) {
@@ -95,18 +104,17 @@ connection::connection(screen *n_s)
           die("unknown network exception");
         }
       }
-      puts("net thread stop");
     })
   , _n(_io, receive, this)
-  , outgoing_sequence(1)
-  , ping_send_delay_ms(1250)
-  , ping_time_counter_ms(0)
-  , time_since_last_pong(0)
-  , connection_state(connection_state_type::disconnected)
-  , s(n_s) {
+  , _outgoing_sequence(1)
+  , _ping_send_delay_ms(1500)
+  , _ping_time_counter_ms(0)
+  , _time_since_last_pong(0)
+  , _connection_state(connection_state_type::disconnected)
+  , _s(n_s) {
   srand(time(nullptr));
-  client_id = rand();
-  printf("this client id is %d\n", client_id);
+  _client_id = rand();
+  printf("this client id is %d\n", _client_id);
 }
 
 connection::~connection() {
@@ -115,54 +123,58 @@ connection::~connection() {
 }
 
 void connection::update(double dt, double t) {
-  puts("u");
-
-  ping_time_counter_ms += dt * 1000.;
-  if (ping_time_counter_ms > ping_send_delay_ms) {
+  _time_since_last_pong += dt;
+  if (_time_since_last_pong > 5)
+    die("connection timeout");
+  _ping_time_counter_ms += dt * 1000.;
+  if (_ping_time_counter_ms > _ping_send_delay_ms) {
     ping();
-    ping_time_counter_ms -= ping_send_delay_ms;
+    _ping_time_counter_ms -= _ping_send_delay_ms;
   }
 
-  if (unreliable_messages.size() >= 64)
+  if (_unreliable_messages.size() >= 64)
     die("message buffer overflow");
-  if (reliable_messages.size() >= 64)
+  if (_reliable_messages.size() >= 64)
     die("rel. message buffer overflow");
-  if (unreliable_messages.size() + reliable_messages.size()) {
+  if (_unreliable_messages.size() + _reliable_messages.size()
+      + _unacked_reliable_messages.size()) {
     packet_header packet;
     packet.reliable = 0;
-    packet.sequence = outgoing_sequence++;
-    packet.ack_sequence = 0;
-    packet.client_id = client_id;
+    packet.sequence = _outgoing_sequence++;
+    packet.ack = 0;
+    packet.client_id = _client_id;
     packet.num_messages = 0;
-    for (size_t i = 0; unreliable_messages.size()
-        && i < unreliable_messages.size(); i++) {
-      packet.serialized_messages.append(unreliable_messages.front());
+    for (size_t i = 0; _unreliable_messages.size()
+        && i < _unreliable_messages.size(); i++) {
+      packet.serialized_messages.append(_unreliable_messages.front());
       ++packet.num_messages;
-      unreliable_messages.pop();
+      _unreliable_messages.pop();
     }
-    if (unacked_reliable_messages.empty()) {
-      for (size_t i = 0; reliable_messages.size()
-          && i < reliable_messages.size(); i++) {
-        packet.reliable = 1;
-        unacked_reliable_messages.append(reliable_messages.front());
-        ++packet.num_messages;
-        reliable_messages.pop();
+    if (_unacked_reliable_messages.empty()) {
+      if (_reliable_messages.size()) {
+        for (size_t i = 0; i < _reliable_messages.size(); i++) {
+          packet.reliable = 1;
+          _unacked_reliable_messages.append(_reliable_messages.front());
+          ++packet.num_messages;
+          _reliable_messages.pop();
+        }
+        packet.serialized_messages.append(_unacked_reliable_messages);
       }
-      packet.serialized_messages.append(unacked_reliable_messages);
+    } else {
+      packet.reliable = 1;
+      packet.serialized_messages.append(_unacked_reliable_messages);
     }
     printf("reliable: %d, ", packet.reliable);
     packet.serialized_messages.print("new packet");
     bytestream pb;
     packet.serialize(pb);
-    _n.send(pb.get_data(), pb.get_size());
+    _n.send(pb.data(), pb.size());
   }
 }
 
 void connection::receive_pong(uint32_t time_sent_ms) {
-  time_since_last_pong = 0;
-  uint32_t curr_ms = std::lround(s->get_time_in_seconds() * 1000.);
-  printf("RECV time_sent_ms=%d\n", time_sent_ms);
-  printf("CURR curr_ms=%d\n", curr_ms);
+  _time_since_last_pong = 0;
+  uint32_t curr_ms = std::lround(_s->get_time_in_seconds() * 1000.);
   printf("rtt: %d ms\n", curr_ms - time_sent_ms);
 }
 

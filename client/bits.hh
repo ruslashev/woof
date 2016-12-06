@@ -8,14 +8,14 @@ class bytestream {
   size_t _index;
   std::vector<uint8_t> _data;
 public:
-  uint8_t* get_data();
-  size_t get_size();
+  uint8_t* data();
+  size_t size();
+  bool empty();
+  void clear();
   void write_uint8(uint8_t value);
   void write_uint16(uint16_t value);
   void write_uint32(uint32_t value);
   void append(const bytestream &b);
-  void clear();
-  bool empty();
   void print(const char *msg = "bytestream");
   bytestream();
 };
