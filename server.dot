@@ -1,0 +1,22 @@
+digraph woof_serv {
+	label = "\nThe (pretty bad) woof server structure";
+	edge [ dir = both, arrowhead = odotempty, arrowtail = odot, arrowsize = 0.8 ];
+
+	woof_serv_app [ style = dotted ];
+	woof_serv_sup [ style = dashed ];
+	woof_client_sup [ style = dashed ];
+	woof_serv;
+	sc [
+		label = "<f0> socket | <f1> clients";
+		shape = record
+	]
+
+	woof_serv_app -> woof_client_sup;
+	woof_serv_app -> woof_serv_sup;
+	woof_serv_sup -> woof_serv;
+	{ rank = same; woof_serv -> sc [ dir = forward, arrowhead = none ] }
+
+	inc_packets [ shape = none; label = "incoming packets" ];
+	inc_packets -> sc:f0 [ dir = forward, arrowhead = normal ];
+}
+

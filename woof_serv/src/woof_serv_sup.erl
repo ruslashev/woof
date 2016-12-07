@@ -8,7 +8,7 @@ start_link() ->
 
 init([]) ->
     { ok, { { one_for_one, 10, 60 },
-            [{ woof_serv,
+            [{ woof_serv_sup,
                { woof_serv, start_link, []},
                permanent, 60 * 1000, worker, [woof_serv] }
             ]

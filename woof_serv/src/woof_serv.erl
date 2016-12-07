@@ -4,8 +4,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 
-% -record(client, { client_id = -1, ip, port }).
--record(server_state, { socket, last_client_id = 0, clients = [] }).
+-record(client, { client_id, ip }).
+-record(server_state, { socket, clients }).
 
 -define(PROTOCOL_VERSION, 1).
 
@@ -27,7 +27,7 @@ init([]) ->
     { ok, PortServer } = application:get_env(port_serv),
     case gen_udp:open(PortServer, [binary, { active, once }]) of
         { ok, Socket } ->
-            { ok, #server_state{ socket = Socket } };
+            { ok, #server_state{ socket = Socket, clients = sets:new() } };
         { error, Reason } ->
             wl:log("Failed to open server socket: ~p", [Reason]),
             { stop, Reason }
@@ -45,7 +45,7 @@ handle_info(InfoMsg, State = #server_state{ socket = Socket }) ->
                                 " ~p~n~p", [Exc, erlang:get_stacktrace()])
             end;
         Unknown ->
-            wl:log("unknown packet \"~p\"", [Unknown])
+            wl:log("unknown info \"~p\"", [Unknown])
     end,
     inet:setopts(Socket, [{ active, once }]),
     { noreply, State }.
@@ -68,9 +68,16 @@ terminate(Reason, State) ->
     wl:log("terminate reason: ~p~n", [Reason]),
     terminate(normal, State).
 
-handle_udp_packet(ClientTuple, Packet, State) ->
-    <<_Reliable:1, _IncomingSequence:31, _AckSequence:32, _ClientId:16,
+handle_udp_packet(ClientTuple = { _Socket, RemoteIp, _RemotePort }, Packet,
+                  State = #server_state{ clients = Clients }) ->
+    <<_Reliable:1, _IncomingSequence:31, _AckSequence:32, ClientId:16,
       NumMessages:8, Messages/binary>> = Packet,
+    ClientRec = #client { client_id = ClientId, ip = RemoteIp },
+    case sets:is_element(ClientRec, Clients) of
+        false ->
+
+        true ->
+
     handle_message(ClientTuple, NumMessages, Messages, State).
 
 handle_message(_, 0, _, _) -> ok;
@@ -82,7 +89,13 @@ handle_message(ClientTuple, NumMessages, Messages, State) ->
             send(ClientTuple, <<?SERVER_MESSAGE_TYPE_PONG:8, TimeSent:32>>),
             handle_message(ClientTuple, NumMessages - 1, RestMessages, State);
         ?MESSAGE_TYPE_CONNECTION_REQ ->
-            <<_ProtocolVer:16, RestMessages/binary>> = Rest,
+            <<ProtocolVer:16, RestMessages/binary>> = Rest,
+            case ProtocolVer of
+                ?PROTOCOL_VERSION ->
+                    ok;
+                _ ->
+                    ok
+            end,
             handle_message(ClientTuple, NumMessages - 1, RestMessages, State)
     end.
 

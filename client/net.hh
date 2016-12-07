@@ -49,7 +49,7 @@ struct packet_header {
   uint8_t  reliable; // 1 bits
   uint32_t sequence; // 31
   uint32_t ack;
-  uint16_t client_id;
+  uint8_t  client_id;
   uint8_t  num_messages;
   bytestream serialized_messages;
   void serialize(bytestream &b);
@@ -73,6 +73,8 @@ struct connection_req_msg : message {
   void serialize(bytestream &b) override;
 };
 
+const uint16_t protocol_version = 1;
+
 class connection {
   asio::io_service _io;
   std::thread _net_io_thread;
@@ -82,7 +84,7 @@ class connection {
   bytestream _unacked_reliable_messages;
 
   uint32_t _outgoing_sequence, _last_sequence_received;
-  uint16_t _client_id;
+  uint8_t _client_id;
   double _ping_send_delay_ms, _ping_time_counter_ms, _time_since_last_pong;
   connection_state_type _connection_state;
 

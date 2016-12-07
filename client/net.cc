@@ -50,7 +50,7 @@ void net::set_endpoint(std::string hostname) {
 void packet_header::serialize(bytestream &b) {
   b.write_uint32(((reliable & 1) << 31) | sequence);
   b.write_uint32(ack);
-  b.write_uint16(client_id);
+  b.write_uint8(client_id);
   b.write_uint8(num_messages);
   b.append(serialized_messages);
 }
@@ -68,7 +68,7 @@ void ping_msg::serialize(bytestream &b) {
 }
 
 connection_req_msg::connection_req_msg() : message(message_type::CONNECTION_REQ)
-  , protocol_ver(1) {
+  , protocol_ver(protocol_version) {
 }
 
 void connection_req_msg::serialize(bytestream &b) {
@@ -191,8 +191,6 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
       break;
     case (uint8_t)server_message_type::CONNECTION_REPLY:
       puts("type: CONNECTION_REPLY");
-      // net_state.client_id = ntohs(*(uint16_t*)(buffer + 1));
-      // printf("assigned client id: %d\n", net_state.client_id);
       break;
     case (uint8_t)server_message_type::ERROR:
       puts("type: ERROR");

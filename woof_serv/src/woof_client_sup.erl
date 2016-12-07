@@ -8,7 +8,7 @@ start_link() ->
 
 init([]) ->
     { ok, { { simple_one_for_one, 100, 1 * 60 },
-            [{ socket,
+            [{ woof_client_sup,
                { woof_client, start_link, [] },
                temporary, 1000, worker, [woof_client] }]
           }
