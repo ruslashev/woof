@@ -18,7 +18,8 @@ public:
   ~screen();
   void mainloop(void (*load_cb)(screen*)
       , void (*key_event_cb)(char, bool)
-      , void (*mousemotion_event_cb)(float, float)
+      , void (*mousemotion_event_cb)(float, float, int, int)
+      , void (*mousebutton_event_cb)(int, bool)
       , void (*update_cb)(double, double, screen*)
       , void (*draw_cb)(double)
       , void (*cleanup_cb)(void));

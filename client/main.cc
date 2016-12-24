@@ -8,7 +8,7 @@
 
 static shaderprogram *sp;
 static GLint vattr;
-static array_buffer *screenverts;
+static array_buffer *cube_vbuf;
 static GLint resolution_unif, time_unif, modelmat_unif, color_unif;
 static shader *vs, *fs;
 static vertexarray *vao;
@@ -54,15 +54,15 @@ void graphics_load(screen *s) {
     1, 0
   };
   vao = new vertexarray;
-  screenverts = new array_buffer;
+  cube_vbuf = new array_buffer;
   vao->bind();
-  screenverts->bind();
-  screenverts->upload(cube_verts);
+  cube_vbuf->bind();
+  cube_vbuf->upload(cube_verts);
   glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, 0);
   glEnableVertexAttribArray(vattr);
   vao->unbind();
   glDisableVertexAttribArray(vattr);
-  screenverts->unbind();
+  cube_vbuf->unbind();
 
   time_unif = sp->bind_uniform("iGlobalTime");
 
@@ -73,7 +73,6 @@ void graphics_load(screen *s) {
       , (float)s->window_height, 0.f, -1.f, 1.f);
   glUniformMatrix4fv(sp->bind_uniform("projection"), 1, GL_FALSE
       , glm::value_ptr(projection_mat));
-
   sp->dont_use_this_prog();
 }
 
@@ -121,9 +120,12 @@ void key_event(char key, bool down) {
   printf("%s %c\n", down? "press" : "release", key);
 }
 
-void mousemotion_event(float xrel, float yrel) {
+void mousemotion_event(float xrel, float yrel, int, int) {
   const float sensitivity = 2.2, m_yaw = 0.022
     , mouse_dx = xrel * sensitivity * m_yaw;
+}
+
+void mousebutton_event_cb(int button, bool down) {
 }
 
 void update(double dt, double t, screen *s) {
@@ -163,7 +165,7 @@ void cleanup() {
   delete vs;
   delete fs;
   delete sp;
-  delete screenverts;
+  delete cube_vbuf;
   delete vao;
   delete c;
 }
@@ -172,7 +174,8 @@ int main() {
   try {
     screen s(800, 450);
 
-    s.mainloop(load, key_event, mousemotion_event, update, draw, cleanup);
+    s.mainloop(load, key_event, mousemotion_event, mousebutton_event_cb, update
+        , draw, cleanup);
   } catch (const std::exception &e) {
     die("exception exit: %s", e.what());
   } catch (...) {

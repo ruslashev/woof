@@ -3,14 +3,13 @@
 
 screen::screen(int n_window_width, int n_window_height)
   : window_width(n_window_width), window_height(n_window_height) {
-  SDL_Init(SDL_INIT_EVERYTHING);
+  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
-  _window = SDL_CreateWindow("woof", SDL_WINDOWPOS_CENTERED,
-      SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
+  _window = SDL_CreateWindow("woof", SDL_WINDOWPOS_CENTERED
+      , SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
 
   _gl_context = SDL_GL_CreateContext(_window);
 
@@ -18,7 +17,7 @@ screen::screen(int n_window_width, int n_window_height)
   assertf(err == GLEW_OK, "failed to initialze glew: %s",
       glewGetErrorString(err));
 
-  assertf(GLEW_VERSION_2_0, "your graphic card does not support OpenGL 2.0");
+  assertf(GLEW_VERSION_2_1, "your graphic card does not support OpenGL 2.1");
 
   running = true;
 }
@@ -40,7 +39,8 @@ static inline char sdlkey_to_char(const SDL_Keycode &kc) {
 
 void screen::mainloop(void (*load_cb)(screen*)
     , void (*key_event_cb)(char, bool)
-    , void (*mousemotion_event_cb)(float, float)
+    , void (*mousemotion_event_cb)(float, float, int, int)
+    , void (*mousebutton_event_cb)(int, bool)
     , void (*update_cb)(double, double, screen*)
     , void (*draw_cb)(double)
     , void (*cleanup_cb)(void)) {
@@ -73,7 +73,21 @@ void screen::mainloop(void (*load_cb)(screen*)
             if (key_info != -1)
               key_event_cb(key_info, sdl_event.type == SDL_KEYDOWN);
           } else if (sdl_event.type == SDL_MOUSEMOTION)
-            mousemotion_event_cb(sdl_event.motion.xrel, sdl_event.motion.yrel);
+            mousemotion_event_cb(sdl_event.motion.xrel, sdl_event.motion.yrel
+                , sdl_event.motion.x, sdl_event.motion.y);
+          else if (sdl_event.type == SDL_MOUSEBUTTONDOWN
+              || sdl_event.type == SDL_MOUSEBUTTONUP) {
+            int button;
+            switch (sdl_event.button.button) {
+              case SDL_BUTTON_LEFT:   button = 1; break;
+              case SDL_BUTTON_MIDDLE: button = 2; break;
+              case SDL_BUTTON_RIGHT:  button = 3; break;
+              case SDL_BUTTON_X1:     button = 4; break;
+              case SDL_BUTTON_X2:     button = 5; break;
+              default:                button = -1;
+            }
+            mousebutton_event_cb(button, sdl_event.type == SDL_MOUSEBUTTONDOWN);
+          }
       }
 
       update_cb(dt, t, this);
