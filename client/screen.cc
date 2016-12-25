@@ -2,7 +2,8 @@
 #include "utils.hh"
 
 screen::screen(int n_window_width, int n_window_height)
-  : window_width(n_window_width), window_height(n_window_height) {
+  : window_width(n_window_width)
+  , window_height(n_window_height) {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);

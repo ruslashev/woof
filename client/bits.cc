@@ -76,7 +76,9 @@ void bytestream::print(const char *msg) {
   print_packet(_data.data(), _data.size(), msg);
 }
 
-bytestream::bytestream() : _index(0) {
+bytestream::bytestream()
+  : _index(0)
+  , _rindex(0) {
   _data.reserve(128);
 }
 

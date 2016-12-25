@@ -5,7 +5,7 @@
 #include <vector>
 
 class bytestream {
-  size_t _index;
+  size_t _index, _rindex;
   std::vector<uint8_t> _data;
 public:
   uint8_t* data();

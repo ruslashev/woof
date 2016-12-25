@@ -55,10 +55,12 @@ void packet_header::serialize(bytestream &b) {
   b.append(serialized_messages);
 }
 
-message::message(message_type n_type) : type(n_type) {
+message::message(message_type n_type)
+  : type(n_type) {
 }
 
-ping_msg::ping_msg() : message(message_type::PING)
+ping_msg::ping_msg()
+  : message(message_type::PING)
   , time_sent_ms(std::numeric_limits<uint32_t>::max()) {
 }
 
@@ -67,7 +69,8 @@ void ping_msg::serialize(bytestream &b) {
   b.write_uint32(htonl(time_sent_ms));
 }
 
-connection_req_msg::connection_req_msg() : message(message_type::CONNECTION_REQ)
+connection_req_msg::connection_req_msg()
+  : message(message_type::CONNECTION_REQ)
   , protocol_ver(protocol_version) {
 }
 
