@@ -1,31 +1,25 @@
 -module(woof_serv).
 -behaviour(gen_server).
--export([start_link/0]).
+-export([start_link/0, stop/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 
 -record(client, { client_id, ip }).
 -record(server_state, { socket, clients }).
 
--define(PROTOCOL_VERSION, 1).
+-include("woof_protocol.hrl").
 
--define(MESSAGE_TYPE_ACK, 0).
--define(MESSAGE_TYPE_PING, 1).
--define(MESSAGE_TYPE_CONNECTION_REQ, 2).
-
--define(SERVER_MESSAGE_TYPE_ACK, 0).
--define(SERVER_MESSAGE_TYPE_PONG, 1).
--define(SERVER_MESSAGE_TYPE_CONNECTION_REPLY, 2).
--define(SERVER_MESSAGE_TYPE_ERROR, 3).
-
--define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
+-define(SOCK_SETTINGS, [binary, { active, once }, { reuseaddr, true }]).
 
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
 
+stop() ->
+    gen_server:call(?MODULE, stop).
+
 init([]) ->
     { ok, PortServer } = application:get_env(port_serv),
-    case gen_udp:open(PortServer, [binary, { active, once }]) of
+    case gen_udp:open(PortServer, ?SOCK_SETTINGS) of
         { ok, Socket } ->
             { ok, #server_state{ socket = Socket, clients = sets:new() } };
         { error, Reason } ->
@@ -33,28 +27,27 @@ init([]) ->
             { stop, Reason }
     end.
 
-handle_info(InfoMsg, State = #server_state{ socket = Socket }) ->
-    case InfoMsg of
-        { udp, _Socket, RemoteIp, RemotePort, Packet } ->
-            ClientTuple = { Socket, RemoteIp, RemotePort },
-            wl:log("got packet \"~p\"~nfrom ~p", [Packet, ClientTuple]),
-            try handle_udp_packet(ClientTuple, Packet, State)
-            catch
-                error:{ badmatch, _ } -> wl:log("Malformed packet");
-                _:Exc -> wl:log("Unhandled exception from handle_udp_packet:"
-                                " ~p~n~p", [Exc, erlang:get_stacktrace()])
-            end;
-        Unknown ->
-            wl:log("unknown info \"~p\"", [Unknown])
+handle_info({ udp, _Socket, RemoteIp, RemotePort, Packet },
+            State = #server_state{ socket = Socket }) ->
+    ClientTuple = { Socket, RemoteIp, RemotePort },
+    wl:log("got packet \"~p\"~nfrom ~p", [Packet, ClientTuple]),
+    try handle_udp_packet(ClientTuple, Packet, State)
+    catch
+        error:{ badmatch, _ } -> wl:log("Malformed packet");
+        _:Exc -> wl:log("Unhandled exception from handle_udp_packet:"
+                        " ~p~n~p", [Exc, erlang:get_stacktrace()])
     end,
     inet:setopts(Socket, [{ active, once }]),
+    { noreply, State };
+handle_info(Unknown, State) ->
+    wl:log("unknown info \"~p\"", [Unknown]),
     { noreply, State }.
 
 handle_cast(Unknown, State) ->
     wl:log("unknown cast ~p", [Unknown]),
     { noreply, State }.
 
-handle_call(Unknown, _, State) ->
+handle_call(Unknown, _From, State) ->
     wl:log("unknown call: ~p", [Unknown]),
     { noreply, State }.
 
