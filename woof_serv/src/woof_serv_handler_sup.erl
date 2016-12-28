@@ -4,11 +4,10 @@
 -export([init/1]).
 
 start_link() ->
-    supervisor:start_link({ local, ?MODULE }, ?MODULE, []).
+    supervisor:start_link({ local, woof_serv_handler_sup }, ?MODULE, []).
 
 handle(Packet) ->
-    io:format("Packet ~p~n", [Packet]).
-    % supervisor:start_child(?MODULE, [Packet]).
+    supervisor:start_child(?MODULE, [Packet]).
 
 init([]) ->
     { ok, { { simple_one_for_one, 5, 10 },

@@ -4,7 +4,7 @@
 -export([init/1]).
 
 start_link() ->
-    supervisor:start_link({ local, ?MODULE }, ?MODULE, []).
+    supervisor:start_link({ local, woof_serv_sup }, ?MODULE, []).
 
 init([]) ->
     { ok, { { one_for_one, 5, 10 },

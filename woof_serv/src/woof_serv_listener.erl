@@ -7,7 +7,7 @@
 -define(ACTIVE, { active, true }).
 
 start_link() ->
-    gen_server:start_link({ local, ?MODULE }, ?MODULE, [], []).
+    gen_server:start_link({ local, woof_serv_listener }, ?MODULE, [], []).
 
 stop() ->
     gen_server:call(?MODULE, stop).
