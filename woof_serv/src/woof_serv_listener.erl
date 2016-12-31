@@ -20,8 +20,8 @@ init([]) ->
             { stop, Reason }
     end.
 
-handle_info(Message = { udp, _, _, _, _ }, Socket) ->
-    woof_serv_handler_sup:handle(Message),
+handle_info({ udp, _Socket, _RemoteIp, _RemotePort, Packet }, Socket) ->
+    woof_serv_handler_sup:handle(Packet),
     { noreply, Socket };
 handle_info(Unknown, State) ->
     io:format("woof_serv_listener: unknown info: ~p~n", [Unknown]),

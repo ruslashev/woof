@@ -2,6 +2,13 @@
 #include "utils.hh"
 #include <limits> // std::numeric_limits
 
+net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
+    , void *n_userdata = nullptr)
+  : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port_client))
+  , receive_cb(n_receive_cb)
+  , userdata(n_userdata) {
+}
+
 void net::start_receive() {
   // TODO: while (1) instead of recursion
   asio::ip::udp::endpoint remote_endpoint;
@@ -19,15 +26,6 @@ void net::start_receive() {
         }
         start_receive();
       });
-}
-
-net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
-    , void *n_userdata = nullptr)
-  : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port_client))
-  , receive_cb(n_receive_cb)
-  , userdata(n_userdata) {
-  set_endpoint("127.0.0.1");
-  start_receive();
 }
 
 void net::send(uint8_t *message, size_t len) {
@@ -50,7 +48,7 @@ void net::set_endpoint(std::string hostname) {
 void packet_header::serialize(bytestream &b) {
   b.write_uint32(((reliable & 1) << 31) | sequence);
   b.write_uint32(ack);
-  b.write_uint8(client_id);
+  b.write_uint16(client_id);
   b.write_uint8(num_messages);
   b.append(serialized_messages);
 }
@@ -88,13 +86,6 @@ void connection::ping() {
   _unreliable_messages.push(b);
 }
 
-void connection::send_connection_req() {
-  connection_req_msg r;
-  bytestream b;
-  r.serialize(b);
-  _reliable_messages.push(b);
-}
-
 connection::connection(screen *n_s)
   : _io()
   , _net_io_thread([&] {
@@ -114,7 +105,8 @@ connection::connection(screen *n_s)
   , _ping_time_counter_ms(0)
   , _time_since_last_pong(0)
   , _connection_state(connection_state_type::disconnected)
-  , _s(n_s) {
+  , _s(n_s)
+  , _connected(false) {
   srand(time(nullptr));
   _client_id = rand();
   printf("this client id is %d\n", _client_id);
@@ -126,13 +118,15 @@ connection::~connection() {
 }
 
 void connection::update(double dt, double t) {
-  _time_since_last_pong += dt;
-  if (_time_since_last_pong > 5)
-    die("connection timeout");
-  _ping_time_counter_ms += dt * 1000.;
-  if (_ping_time_counter_ms > _ping_send_delay_ms) {
-    ping();
-    _ping_time_counter_ms -= _ping_send_delay_ms;
+  if (_connected) {
+    _time_since_last_pong += dt;
+    if (_time_since_last_pong > 5)
+      die("connection timeout");
+    _ping_time_counter_ms += dt * 1000.;
+    if (_ping_time_counter_ms > _ping_send_delay_ms) {
+      ping();
+      _ping_time_counter_ms -= _ping_send_delay_ms;
+    }
   }
 
   if (_unreliable_messages.size() >= 64)
@@ -212,5 +206,15 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
 
 void connection::send() {
 
+}
+
+void connection::connect(std::string remote_ip) {
+  _n.set_endpoint(remote_ip);
+  _n.start_receive();
+
+  connection_req_msg r;
+  bytestream b;
+  r.serialize(b);
+  _reliable_messages.push(b);
 }
 

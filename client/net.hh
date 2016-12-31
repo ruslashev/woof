@@ -13,10 +13,10 @@ class net {
   uint8_t _recv_buffer[max_msg_len];
   void (*receive_cb)(void*, uint8_t*, size_t);
   void *userdata;
-  void start_receive();
 public:
   net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
       , void *n_userdata);
+  void start_receive();
   void send(uint8_t *message, size_t len);
   void set_endpoint(std::string hostname);
 };
@@ -49,7 +49,7 @@ struct packet_header {
   uint8_t  reliable; // 1 bits
   uint32_t sequence; // 31
   uint32_t ack;
-  uint8_t  client_id;
+  uint16_t client_id;
   uint8_t  num_messages;
   bytestream serialized_messages;
   void serialize(bytestream &b);
@@ -84,14 +84,15 @@ class connection {
   bytestream _unacked_reliable_messages;
 
   uint32_t _outgoing_sequence, _last_sequence_received;
-  uint8_t _client_id;
+  uint16_t _client_id;
   double _ping_send_delay_ms, _ping_time_counter_ms, _time_since_last_pong;
   connection_state_type _connection_state;
 
   screen *_s; // for getting time
 
+  bool _connected;
+
   void ping();
-  void send_connection_req();
 public:
   connection(screen *n_s);
   ~connection();
@@ -99,5 +100,6 @@ public:
   void receive_pong(uint32_t time_sent_ms);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send();
+  void connect(std::string remote_ip);
 };
 
