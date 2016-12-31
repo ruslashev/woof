@@ -46,8 +46,6 @@ void net::set_endpoint(std::string hostname) {
 }
 
 void packet_header::serialize(bytestream &b) {
-  b.write_uint32(((reliable & 1) << 31) | sequence);
-  b.write_uint32(ack);
   b.write_uint16(client_id);
   b.write_uint8(num_messages);
   b.append(serialized_messages);
@@ -58,13 +56,11 @@ message::message(message_type n_type)
 }
 
 ping_msg::ping_msg()
-  : message(message_type::PING)
-  , time_sent_ms(std::numeric_limits<uint32_t>::max()) {
+  : message(message_type::PING) {
 }
 
 void ping_msg::serialize(bytestream &b) {
   b.write_uint8((uint8_t)type);
-  b.write_uint32(htonl(time_sent_ms));
 }
 
 connection_req_msg::connection_req_msg()
@@ -77,10 +73,29 @@ void connection_req_msg::serialize(bytestream &b) {
   b.write_uint16(htons(protocol_ver));
 }
 
+packet_data::packet_data()
+  : acked(false)
+  , time_sent_ms(std::numeric_limits<uint32_t>::max()) {
+  // time_sent_ms = std::lround(_s->get_time_in_seconds() * 1000.);
+}
+
+packet_data* connection::get_packet_data(uint16_t sequence) {
+  const int idx = sequence % sequence_buffer_size;
+  if (_sequence_buffer[idx] == sequence)
+    return &_packet_data[idx];
+  else
+    return nullptr;
+}
+
+packet_data& connection::insert_packet_data(uint16_t sequence) {
+  const int idx = sequence % sequence_buffer_size;
+  _sequence_buffer[idx] = sequence;
+  return _packet_data[idx];
+}
+
 void connection::ping() {
   ping_msg p;
   p.type = message_type::PING;
-  p.time_sent_ms = std::lround(_s->get_time_in_seconds() * 1000.);
   bytestream b;
   p.serialize(b);
   _unreliable_messages.push(b);
@@ -136,7 +151,6 @@ void connection::update(double dt, double t) {
   if (_unreliable_messages.size() + _reliable_messages.size()
       + _unacked_reliable_messages.size()) {
     packet_header packet;
-    packet.reliable = 0;
     packet.sequence = _outgoing_sequence++;
     packet.ack = 0;
     packet.client_id = _client_id;

@@ -46,10 +46,10 @@ enum class connection_state_type : uint8_t {
 };
 
 struct packet_header {
-  uint8_t  reliable; // 1 bits
-  uint32_t sequence; // 31
-  uint32_t ack;
   uint16_t client_id;
+  uint16_t sequence;
+  uint16_t ack;
+  uint32_t ack_bits;
   uint8_t  num_messages;
   bytestream serialized_messages;
   void serialize(bytestream &b);
@@ -62,7 +62,6 @@ struct message {
 };
 
 struct ping_msg : message {
-  uint32_t time_sent_ms;
   ping_msg();
   void serialize(bytestream &b) override;
 };
@@ -75,10 +74,20 @@ struct connection_req_msg : message {
 
 const uint16_t protocol_version = 1;
 
+const int sequence_buffer_size = 1024;
+struct packet_data {
+  bool acked;
+  uint32_t time_sent_ms;
+  packet_data();
+};
+
 class connection {
   asio::io_service _io;
   std::thread _net_io_thread;
   net _n;
+
+  uint32_t _sequence_buffer[sequence_buffer_size];
+  packet_data _packet_data[sequence_buffer_size];
 
   std::queue<bytestream> _reliable_messages, _unreliable_messages;
   bytestream _unacked_reliable_messages;
@@ -92,6 +101,8 @@ class connection {
 
   bool _connected;
 
+  packet_data* get_packet_data(uint16_t sequence);
+  packet_data& insert_packet_data(uint16_t sequence);
   void ping();
 public:
   connection(screen *n_s);
