@@ -88,8 +88,13 @@ void load(screen *s) {
 
   player.pos_x = player.pos_y = player.rotation = 0;
 
-  c = new connection(s);
-  c->connect("127.0.0.1");
+#ifdef WOOF_SERVER
+  c = new connection(port_serv, s);
+  c->connect("127.0.0.1", port_client);
+#else
+  c = new connection(port_client, s);
+  c->connect("127.0.0.1", port_serv);
+#endif
 }
 
 void key_event(char key, bool down) {

@@ -82,3 +82,9 @@ bytestream::bytestream()
   _data.reserve(128);
 }
 
+bytestream::bytestream(const uint8_t *buffer, const size_t size)
+  : _index(0)
+  , _rindex(0) {
+  _data.assign(buffer, buffer + size);
+}
+

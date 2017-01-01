@@ -21,4 +21,5 @@ public:
   void append(const bytestream &b);
   void print(const char *msg = "bytestream");
   bytestream();
+  bytestream(const uint8_t *buffer, const size_t size);
 };
