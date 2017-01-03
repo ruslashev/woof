@@ -1,4 +1,5 @@
 woof
+woof_server
 *.o
 *.beam
 .rebar3

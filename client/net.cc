@@ -3,10 +3,11 @@
 #include <limits> // std::numeric_limits
 
 net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
-    , void *n_userdata, int port = port_client)
+    , void *n_userdata, int port)
   : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
   , receive_cb(n_receive_cb)
   , userdata(n_userdata) {
+  set_endpoint("127.0.0.1", port);
   start_receive();
 }
 
@@ -41,7 +42,7 @@ void net::send(uint8_t *message, size_t len) {
       });
 }
 
-void net::set_endpoint(std::string hostname, int port = port_serv) {
+void net::set_endpoint(std::string hostname, int port) {
   _remote_endpoint = asio::ip::udp::endpoint(
       asio::ip::address::from_string(hostname), port);
 }
@@ -91,7 +92,7 @@ packet_data::packet_data()
   , time_sent_ms(std::numeric_limits<uint32_t>::max()) {
 }
 
-static inline bool sequence_more_recent(uint16_t s1, uint16_t s2) {
+inline bool sequence_more_recent(uint16_t s1, uint16_t s2) {
   const uint16_t max_sequence = std::numeric_limits<uint16_t>::max();
   return ((s1 > s2) && (s1 - s2 <= max_sequence / 2)) || ((s2 > s1)
       && (s2 - s1 > max_sequence / 2));
@@ -162,8 +163,12 @@ connection::connection(int port, screen *n_s)
       }
     })
   , _n(_io, receive, this, port)
-  , _outgoing_sequence(1)
-  , _last_sequence_received(1)
+  , _sent_packets(0)
+  , _lost_packets(0)
+  , _received_packets(0)
+  , _acked_packets(0)
+  , _outgoing_sequence(0)
+  , _last_sequence_received(0)
   , _ping_send_delay_ms(1500)
   , _ping_time_counter_ms(0)
   , _time_since_last_pong(0)
@@ -181,34 +186,41 @@ connection::~connection() {
 }
 
 void connection::update(double dt, double t) {
+  const int max_rtt = 300;
   _acks.clear();
 
-  /*
-  while ( sentQueue.size() && sentQueue.front().time > rtt_maximum + epsilon )
-    sentQueue.pop_front();
-    */
+  while (_sent_pq.size() &&
+      _s->get_time_in_seconds() * 1000. - _sent_pq.front().time_sent_ms > max_rtt) {
+    printf("dropping packet %d from sent_pq after timeout\n"
+        , _sent_pq.front().sequence);
+    _sent_pq.pop_front();
+  }
 
   if (_received_pq.size()) {
     const uint16_t latest_sequence = _received_pq.back().sequence
       , max_sequence = std::numeric_limits<uint16_t>::max()
       , min_sequence = latest_sequence >= 34
-      ? (latest_sequence - 34)
-      : max_sequence - (34 - latest_sequence);
+        ? (latest_sequence - 34)
+        : max_sequence - (34 - latest_sequence);
     while (_received_pq.size()
         && !sequence_more_recent(_received_pq.front().sequence, min_sequence))
       _received_queue.pop_front();
   }
 
-  /*
-  while ( ackedQueue.size() && ackedQueue.front().time > rtt_maximum * 2 - epsilon )
-    ackedQueue.pop_front();
-
-  while ( pendingAckQueue.size() && pendingAckQueue.front().time > rtt_maximum + epsilon )
-  {
-    pendingAckQueue.pop_front();
-    lost_packets++;
+  while (_acked_pq.size() && _s->get_time_in_seconds() * 1000.
+      - _acked_pq.front().time_sent_ms > max_rtt * 2) {
+    printf("dropping packet %d from acked_pq after timeout\n"
+        , _acked_pq.front().sequence);
+    _acked_pq.pop_front();
   }
-  */
+
+  while (_pending_ack_pq.size() && _s->get_time_in_seconds() * 1000.
+      - _pending_ack_pq.front().time_sent_ms > max_rtt) {
+    printf("dropping packet %d from pending_ack_pq after timeout\n"
+        , _pending_ack_pq.front().sequence);
+    _pending_ack_pq.pop_front();
+    ++_lost_packets;
+  }
 
   /*
   if (_connected) {
@@ -278,6 +290,16 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   bool success;
   header.deserialize(packet, success);
 
+  puts("");
+  printf("received packet: ");
+  printf("header.client_id=%d\n", header.client_id);
+  printf("header.sequence=%d\n", header.sequence);
+  printf("header.ack=%d\n", header.ack);
+  printf("header.ack_bits=%d\n", header.ack_bits);
+  printf("header.num_messages=%d\n", header.num_messages);
+  puts("");
+
+  ++c->_received_packets;
   if (c->_received_pq.exists(header.sequence))
     return;
   packet_data d;
@@ -303,6 +325,7 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
       // rtt += (i->time_sent_ms - rtt) * 0.1f;
       c->_acked_pq.insert_sorted(*i);
       c->_acks.push_back(i->sequence);
+      ++c->_acked_packets;
       i = c->_pending_ack_pq.erase(i);
     } else
       ++i;
@@ -315,6 +338,22 @@ void connection::send(const bytestream &message) {
   packet.sequence = _outgoing_sequence;
   packet.ack = _last_sequence_received;
   packet.ack_bits = generate_ack_bits();
+  packet.num_messages = 1;
+  packet.serialized_messages = message;
+
+  puts("");
+  printf("sending packet:\n");
+  printf("packet.client_id=%d\n", packet.client_id);
+  printf("packet.sequence=%d\n", packet.sequence);
+  printf("packet.ack=%d\n", packet.ack);
+  printf("packet.ack_bits=%d\n", packet.ack_bits);
+  puts("");
+
+  bytestream serialized_packet;
+  packet.serialize(serialized_packet);
+  print_packet(serialized_packet.data(), serialized_packet.size());
+  _n.send(serialized_packet.data(), serialized_packet.size());
+
   if (_sent_pq.exists(_outgoing_sequence)) {
     printf("local sequence %d exists\n", _outgoing_sequence);
     for (const packet_data &d : _sent_pq)
@@ -329,6 +368,7 @@ void connection::send(const bytestream &message) {
   d.time_sent_ms = _s->get_time_in_seconds() * 1000.;
   _sent_pq.push_back(d);
   _pending_ack_pq.push_back(d);
+  ++_sent_packets;
   ++_outgoing_sequence;
 }
 

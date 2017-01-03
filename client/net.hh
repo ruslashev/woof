@@ -45,7 +45,7 @@ enum class connection_state_type : uint8_t {
   connected
 };
 
-struct packet_header {
+struct packet_header { // should be renamed to just "packet"
   uint16_t client_id;
   uint16_t sequence;
   uint16_t ack;
@@ -83,7 +83,7 @@ struct packet_data {
   packet_data();
 };
 
-static inline bool sequence_more_recent(uint16_t s1, uint16_t s2);
+bool sequence_more_recent(uint16_t s1, uint16_t s2);
 
 class packet_queue : public std::list<packet_data> {
 public:
@@ -137,6 +137,7 @@ class connection {
   packet_data _packet_data[sequence_buffer_size];
   packet_queue _sent_pq, _pending_ack_pq, _received_pq, _acked_pq;
   std::vector<uint16_t> _acks;
+  uint64_t _sent_packets, _lost_packets, _received_packets, _acked_packets;
 
   // std::queue<bytestream> _reliable_messages, _unreliable_messages;
   // bytestream _unacked_reliable_messages;

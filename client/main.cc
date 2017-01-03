@@ -14,7 +14,7 @@ static shader *vs, *fs;
 static vertexarray *vao;
 
 void graphics_load(screen *s) {
-  s->lock_mouse();
+  // s->lock_mouse();
 
   glClearColor(0.06f, 0.06f, 0.06f, 1);
 
@@ -90,10 +90,8 @@ void load(screen *s) {
 
 #ifdef WOOF_SERVER
   c = new connection(port_serv, s);
-  c->connect("127.0.0.1", port_client);
 #else
   c = new connection(port_client, s);
-  c->connect("127.0.0.1", port_serv);
 #endif
 }
 
@@ -140,6 +138,17 @@ void update(double dt, double t, screen *s) {
   sp->use_this_prog();
   glUniform1f(time_unif, t);
   sp->dont_use_this_prog();
+
+#ifndef WOOF_SERVER
+  static uint64_t i = 0;
+  if (i++ % 30 == 0) {
+    std::string text = "ohai";
+    bytestream msg;
+    for (size_t j = 0; j < text.size(); ++j)
+      msg.write_uint8(text[j]);
+    c->send(msg);
+  }
+#endif
 }
 
 void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
