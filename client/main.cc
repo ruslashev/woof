@@ -139,12 +139,13 @@ void update(double dt, double t, screen *s) {
   glUniform1f(time_unif, t);
   sp->dont_use_this_prog();
 
-#ifndef WOOF_SERVER
   static uint64_t i = 0;
   if (i++ % 30 == 0) {
+#ifndef WOOF_SERVER
     c->connect("127.0.0.1", port_serv);
-  }
 #endif
+    c->print_stats();
+  }
 }
 
 void draw_square(glm::vec2 pos, glm::vec2 size, float rotation

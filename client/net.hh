@@ -130,11 +130,11 @@ public:
 
 class connection {
   asio::io_service _io;
-  std::thread _net_io_thread;
   net _n;
+  std::thread _net_io_thread;
 
   // uint32_t _sequence_buffer[sequence_buffer_size];
-  packet_data _packet_data[sequence_buffer_size];
+  // packet_data _packet_data[sequence_buffer_size];
   packet_queue _sent_pq, _pending_ack_pq, _received_pq, _acked_pq;
   std::vector<uint16_t> _acks;
   uint64_t _sent_packets, _lost_packets, _received_packets, _acked_packets;
@@ -165,5 +165,6 @@ public:
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send(const bytestream &message);
   void connect(std::string remote_ip, int remote_port);
+  void print_stats();
 };
 

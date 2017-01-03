@@ -4,10 +4,15 @@
 
 net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
     , void *n_userdata, int port)
+  try
   : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
   , receive_cb(n_receive_cb)
   , userdata(n_userdata) {
   start_receive();
+} catch (const std::exception &e) {
+  die("net init fail: %s", e.what());
+} catch (...) {
+  die("net init fail");
 }
 
 void net::start_receive() {
@@ -45,21 +50,21 @@ void net::set_endpoint(std::string hostname, int port) {
 }
 
 void packet_header::serialize(bytestream &b) {
-  b.write_uint16(client_id);
-  b.write_uint16(sequence);
-  b.write_uint16(ack);
-  b.write_uint32(ack_bits);
-  b.write_uint8(num_messages);
+  b.write_net(client_id);
+  b.write_net(sequence);
+  b.write_net(ack);
+  b.write_net(ack_bits);
+  b.write_net(num_messages);
   b.append(serialized_messages);
 }
 
 void packet_header::deserialize(bytestream &b, bool &success) {
   success = true;
-  success |= b.read_uint16(client_id);
-  success |= b.read_uint16(sequence);
-  success |= b.read_uint16(ack);
-  success |= b.read_uint32(ack_bits);
-  success |= b.read_uint8(num_messages);
+  success |= b.read_net(client_id);
+  success |= b.read_net(sequence);
+  success |= b.read_net(ack);
+  success |= b.read_net(ack_bits);
+  success |= b.read_net(num_messages);
 }
 
 message::message(message_type n_type)
@@ -71,7 +76,7 @@ ping_msg::ping_msg()
 }
 
 void ping_msg::serialize(bytestream &b) {
-  b.write_uint8((uint8_t)type);
+  b.write_net((uint8_t)type);
 }
 
 connection_req_msg::connection_req_msg()
@@ -80,8 +85,8 @@ connection_req_msg::connection_req_msg()
 }
 
 void connection_req_msg::serialize(bytestream &b) {
-  b.write_uint8((uint8_t)type);
-  b.write_uint16(htons(protocol_ver));
+  b.write_net((uint8_t)type);
+  b.write_net(htons(protocol_ver));
 }
 
 packet_data::packet_data()
@@ -148,7 +153,9 @@ uint32_t connection::generate_ack_bits() {
 
 connection::connection(int port, screen *n_s)
   : _io()
+  , _n(_io, receive, this, port)
   , _net_io_thread([&] {
+      puts("net thread start");
       while (!_io.stopped()) {
         try {
           _io.run();
@@ -159,7 +166,6 @@ connection::connection(int port, screen *n_s)
         }
       }
     })
-  , _n(_io, receive, this, port)
   , _sent_packets(0)
   , _lost_packets(0)
   , _received_packets(0)
@@ -287,15 +293,6 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   bool success;
   header.deserialize(packet, success);
 
-  puts("");
-  printf("received packet: ");
-  printf("header.client_id=%d\n", header.client_id);
-  printf("header.sequence=%d\n", header.sequence);
-  printf("header.ack=%d\n", header.ack);
-  printf("header.ack_bits=%d\n", header.ack_bits);
-  printf("header.num_messages=%d\n", header.num_messages);
-  puts("");
-
   ++c->_received_packets;
   if (c->_received_pq.exists(header.sequence))
     return;
@@ -327,6 +324,10 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
     } else
       ++i;
   }
+
+#ifdef WOOF_SERVER
+  c->connect("127.0.0.1", port_client);
+#endif
 }
 
 void connection::send(const bytestream &message) {
@@ -337,14 +338,6 @@ void connection::send(const bytestream &message) {
   packet.ack_bits = generate_ack_bits();
   packet.num_messages = 1;
   packet.serialized_messages = message;
-
-  puts("");
-  printf("sending packet:\n");
-  printf("packet.client_id=%d\n", packet.client_id);
-  printf("packet.sequence=%d\n", packet.sequence);
-  printf("packet.ack=%d\n", packet.ack);
-  printf("packet.ack_bits=%d\n", packet.ack_bits);
-  puts("");
 
   bytestream serialized_packet;
   packet.serialize(serialized_packet);
@@ -374,7 +367,11 @@ void connection::connect(std::string remote_ip, int remote_port) {
   std::string text = "ohai";
   bytestream msg;
   for (size_t j = 0; j < text.size(); ++j)
-    msg.write_uint8(text[j]);
+    msg.write_net((uint8_t)text[j]);
   send(msg);
+}
+
+void connection::print_stats() {
+  printf("sent=%lu, lost=%lu, received=%lu, acked=%lu\n", _sent_packets, _lost_packets, _received_packets, _acked_packets);
 }
 
