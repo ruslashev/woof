@@ -7,7 +7,6 @@ net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
   : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
   , receive_cb(n_receive_cb)
   , userdata(n_userdata) {
-  set_endpoint("127.0.0.1", port);
   start_receive();
 }
 
@@ -32,10 +31,8 @@ void net::start_receive() {
 
 void net::send(uint8_t *message, size_t len) {
   _socket.async_send_to(asio::buffer(message, len), _remote_endpoint
-      , [this, len](const asio::error_code &e, size_t bytes_tx) {
-        if (bytes_tx != len)
-          printf("somewhy %zu/%zu bytes have been sent\n", bytes_tx, len);
-        if (e && e != asio::error::message_size)
+      , [this](const asio::error_code &e, size_t bytes_tx) {
+        if (e)
           puts("some kind of error happened on sending");
         else
           puts("ok, sent");
@@ -372,13 +369,12 @@ void connection::send(const bytestream &message) {
   ++_outgoing_sequence;
 }
 
-/*
 void connection::connect(std::string remote_ip, int remote_port) {
   _n.set_endpoint(remote_ip, remote_port);
-  connection_req_msg r;
-  bytestream b;
-  r.serialize(b);
-  _reliable_messages.push(b);
+  std::string text = "ohai";
+  bytestream msg;
+  for (size_t j = 0; j < text.size(); ++j)
+    msg.write_uint8(text[j]);
+  send(msg);
 }
-*/
 

@@ -142,11 +142,7 @@ void update(double dt, double t, screen *s) {
 #ifndef WOOF_SERVER
   static uint64_t i = 0;
   if (i++ % 30 == 0) {
-    std::string text = "ohai";
-    bytestream msg;
-    for (size_t j = 0; j < text.size(); ++j)
-      msg.write_uint8(text[j]);
-    c->send(msg);
+    c->connect("127.0.0.1", port_serv);
   }
 #endif
 }

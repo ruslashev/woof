@@ -164,6 +164,6 @@ public:
   // void receive_pong(uint32_t time_sent_ms);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send(const bytestream &message);
-  // void connect(std::string remote_ip, int remote_port);
+  void connect(std::string remote_ip, int remote_port);
 };
 
