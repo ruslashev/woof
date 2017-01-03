@@ -9,8 +9,8 @@ class bytestream {
   std::vector<uint8_t> _data;
 public:
   uint8_t* data();
-  size_t size();
-  bool empty();
+  size_t size() const;
+  bool empty() const;
   void clear();
   void write_uint8(uint8_t value);
   void write_uint16(uint16_t value);

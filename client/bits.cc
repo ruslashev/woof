@@ -6,17 +6,18 @@ uint8_t* bytestream::data() {
   return _data.data();
 }
 
-size_t bytestream::size() {
+size_t bytestream::size() const {
   return _data.size();
 }
 
-bool bytestream::empty() {
+bool bytestream::empty() const {
   return _data.empty();
 }
 
 void bytestream::clear() {
   _data.clear();
   _index = 0;
+  _rindex = 0;
 }
 
 void bytestream::write_uint8(uint8_t value) {
