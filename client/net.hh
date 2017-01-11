@@ -53,7 +53,7 @@ struct packet_header { // should be renamed to just "packet"
   uint8_t  num_messages;
   bytestream serialized_messages;
   void serialize(bytestream &b);
-  void deserialize(bytestream &b, bool &success);
+  bool deserialize(bytestream &b);
 };
 
 struct message {

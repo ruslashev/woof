@@ -140,8 +140,10 @@ void update(double dt, double t, screen *s) {
   sp->dont_use_this_prog();
 
   static uint64_t i = 0;
-  if (i++ % 30 == 0) {
-#ifndef WOOF_SERVER
+  if (i++ % 50 == 0) {
+#ifdef WOOF_SERVER
+    c->connect("127.0.0.1", port_client);
+#else
     c->connect("127.0.0.1", port_serv);
 #endif
     c->print_stats();

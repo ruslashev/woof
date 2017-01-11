@@ -16,7 +16,6 @@ net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
 }
 
 void net::start_receive() {
-  puts("start_receive()");
   asio::ip::udp::endpoint remote_endpoint;
   _socket.async_receive_from(asio::buffer(_recv_buffer), remote_endpoint
       , [this, &remote_endpoint](const asio::error_code &e, size_t bytes_rx) {
@@ -58,13 +57,14 @@ void packet_header::serialize(bytestream &b) {
   b.append(serialized_messages);
 }
 
-void packet_header::deserialize(bytestream &b, bool &success) {
-  success = true;
-  success |= b.read_net(client_id);
-  success |= b.read_net(sequence);
-  success |= b.read_net(ack);
-  success |= b.read_net(ack_bits);
-  success |= b.read_net(num_messages);
+bool packet_header::deserialize(bytestream &b) {
+  bool success = true;
+  success &= b.read_net(client_id);
+  success &= b.read_net(sequence);
+  success &= b.read_net(ack);
+  success &= b.read_net(ack_bits);
+  success &= b.read_net(num_messages);
+  return success;
 }
 
 message::message(message_type n_type)
@@ -194,8 +194,8 @@ void connection::update(double dt, double t) {
 
   while (_sent_pq.size() &&
       _s->get_time_in_seconds() * 1000. - _sent_pq.front().time_sent_ms > max_rtt) {
-    printf("dropping packet %d from sent_pq after timeout\n"
-        , _sent_pq.front().sequence);
+    // printf("dropping packet %d from sent_pq after timeout\n"
+    //     , _sent_pq.front().sequence);
     _sent_pq.pop_front();
   }
 
@@ -212,15 +212,15 @@ void connection::update(double dt, double t) {
 
   while (_acked_pq.size() && _s->get_time_in_seconds() * 1000.
       - _acked_pq.front().time_sent_ms > max_rtt * 2) {
-    printf("dropping packet %d from acked_pq after timeout\n"
-        , _acked_pq.front().sequence);
+    // printf("dropping packet %d from acked_pq after timeout\n"
+    //     , _acked_pq.front().sequence);
     _acked_pq.pop_front();
   }
 
   while (_pending_ack_pq.size() && _s->get_time_in_seconds() * 1000.
       - _pending_ack_pq.front().time_sent_ms > max_rtt) {
-    printf("dropping packet %d from pending_ack_pq after timeout\n"
-        , _pending_ack_pq.front().sequence);
+    // printf("dropping packet %d from pending_ack_pq after timeout\n"
+    //     , _pending_ack_pq.front().sequence);
     _pending_ack_pq.pop_front();
     ++_lost_packets;
   }
@@ -290,8 +290,8 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   print_packet(buffer, bytes_rx, "received packet");
   bytestream packet(buffer, bytes_rx);
   packet_header header;
-  bool success;
-  header.deserialize(packet, success);
+  if (!header.deserialize(packet))
+    warning("malformed packet");
 
   ++c->_received_packets;
   if (c->_received_pq.exists(header.sequence))
@@ -324,10 +324,6 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
     } else
       ++i;
   }
-
-#ifdef WOOF_SERVER
-  c->connect("127.0.0.1", port_client);
-#endif
 }
 
 void connection::send(const bytestream &message) {
@@ -341,7 +337,7 @@ void connection::send(const bytestream &message) {
 
   bytestream serialized_packet;
   packet.serialize(serialized_packet);
-  print_packet(serialized_packet.data(), serialized_packet.size());
+  // print_packet(serialized_packet.data(), serialized_packet.size(), "sending:");
   _n.send(serialized_packet.data(), serialized_packet.size());
 
   if (_sent_pq.exists(_outgoing_sequence)) {
@@ -372,6 +368,7 @@ void connection::connect(std::string remote_ip, int remote_port) {
 }
 
 void connection::print_stats() {
-  printf("sent=%lu, lost=%lu, received=%lu, acked=%lu\n", _sent_packets, _lost_packets, _received_packets, _acked_packets);
+  printf("sent=%llu, lost=%llu, received=%llu, acked=%llu\n", _sent_packets
+      , _lost_packets, _received_packets, _acked_packets);
 }
 
