@@ -9,7 +9,7 @@ default:
 	./woof
 
 server:
-	g++ -DWOOF_SERVER main.cc screen.cc net.cc bits.cc -o woof $(flags) $(libraries) $(warnings)
+	g++ -DWOOF_SERVER main.cc screen.cc net.cc bits.cc -o woof_server $(flags) $(libraries) $(warnings)
 	./woof_server
 
 lines:

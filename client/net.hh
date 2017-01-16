@@ -45,14 +45,15 @@ enum class connection_state_type : uint8_t {
   connected
 };
 
-struct packet_header {
-  uint8_t  reliable; // 1 bits
-  uint32_t sequence; // 31
-  uint32_t ack;
+struct packet {
   uint16_t client_id;
+  uint8_t  reliable;
+  uint32_t sequence;
+  uint32_t ack;
   uint8_t  num_messages;
   bytestream serialized_messages;
   void serialize(bytestream &b);
+  void deserialize(bytestream &b, bool &success);
 };
 
 struct message {
@@ -77,13 +78,13 @@ const uint16_t protocol_version = 1;
 
 class connection {
   asio::io_service _io;
-  std::thread _net_io_thread;
   net _n;
+  std::thread _net_io_thread;
 
   std::queue<bytestream> _reliable_messages, _unreliable_messages;
   bytestream _unacked_reliable_messages;
   uint32_t _outgoing_sequence, _last_sequence_received;
-  uint64_t _sent_packets, _recvd_packets;
+  uint64_t _sent_packets, _received_packets;
 
   uint16_t _client_id;
   double _ping_send_delay_ms, _ping_time_counter_ms, _time_since_last_pong;
@@ -102,5 +103,6 @@ public:
   void send(bytestream msg);
   void send_rel(bytestream msg);
   void test(std::string remote_ip, int remote_port);
+  void print_stats();
 };
 
