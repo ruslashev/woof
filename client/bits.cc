@@ -6,17 +6,18 @@ uint8_t* bytestream::data() {
   return _data.data();
 }
 
-size_t bytestream::size() {
+size_t bytestream::size() const {
   return _data.size();
 }
 
-bool bytestream::empty() {
+bool bytestream::empty() const {
   return _data.empty();
 }
 
 void bytestream::clear() {
   _data.clear();
   _index = 0;
+  _rindex = 0;
 }
 
 void bytestream::write_uint8(uint8_t value) {
@@ -27,11 +28,23 @@ void bytestream::write_uint8(uint8_t value) {
 
 void bytestream::write_uint16(uint16_t value) {
   _data.resize(_data.size() + 2);
-  *((uint16_t*)(_data.data() + _index)) = htons(value);
+  *((uint16_t*)(_data.data() + _index)) = value;
   _index += 2;
 }
 
 void bytestream::write_uint32(uint32_t value) {
+  _data.resize(_data.size() + 4);
+  *((uint32_t*)(_data.data() + _index)) = value;
+  _index += 4;
+}
+
+void bytestream::write_uint16_net(uint16_t value) {
+  _data.resize(_data.size() + 2);
+  *((uint16_t*)(_data.data() + _index)) = htons(value);
+  _index += 2;
+}
+
+void bytestream::write_uint32_net(uint32_t value) {
   _data.resize(_data.size() + 4);
   *((uint32_t*)(_data.data() + _index)) = htonl(value);
   _index += 4;
@@ -64,6 +77,24 @@ bool bytestream::read_uint32(uint32_t &value) {
     return false;
 }
 
+bool bytestream::read_uint16_net(uint16_t &value) {
+  if (_rindex + 2 <= _data.size()) {
+    value = ntohs(*((uint16_t*)(_data.data() + _rindex)));
+    _rindex += 2;
+    return true;
+  } else
+    return false;
+}
+
+bool bytestream::read_uint32_net(uint32_t &value) {
+  if (_rindex + 4 <= _data.size()) {
+    value = ntohl(*((uint32_t*)(_data.data() + _rindex)));
+    _rindex += 4;
+    return true;
+  } else
+    return false;
+}
+
 void bytestream::append(const bytestream &b) {
   uint8_t *other_data = (uint8_t*)b._data.data();
   size_t other_size = b._data.size();
@@ -74,6 +105,12 @@ void bytestream::append(const bytestream &b) {
 
 void bytestream::print(const char *msg) {
   print_packet(_data.data(), _data.size(), msg);
+}
+
+bytestream::bytestream(const uint8_t *buffer, const size_t size)
+  : _index(0)
+  , _rindex(0) {
+  _data.assign(buffer, buffer + size);
 }
 
 bytestream::bytestream()

@@ -15,10 +15,10 @@ class net {
   void *userdata;
 public:
   net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
-      , void *n_userdata);
+      , void *n_userdata, int port);
   void start_receive();
   void send(uint8_t *message, size_t len);
-  void set_endpoint(std::string hostname);
+  void set_endpoint(std::string hostname, int port);
 };
 
 enum class message_type : uint8_t {
@@ -82,8 +82,9 @@ class connection {
 
   std::queue<bytestream> _reliable_messages, _unreliable_messages;
   bytestream _unacked_reliable_messages;
-
   uint32_t _outgoing_sequence, _last_sequence_received;
+  uint64_t _sent_packets, _recvd_packets;
+
   uint16_t _client_id;
   double _ping_send_delay_ms, _ping_time_counter_ms, _time_since_last_pong;
   connection_state_type _connection_state;
@@ -94,12 +95,12 @@ class connection {
 
   void ping();
 public:
-  connection(screen *n_s);
+  connection(int port, screen *n_s);
   ~connection();
   void update(double dt, double t);
-  void receive_pong(uint32_t time_sent_ms);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
-  void send();
-  void connect(std::string remote_ip);
+  void send(bytestream msg);
+  void send_rel(bytestream msg);
+  void test(std::string remote_ip, int remote_port);
 };
 

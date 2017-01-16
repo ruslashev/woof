@@ -3,10 +3,16 @@
 #include <limits> // std::numeric_limits
 
 net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
-    , void *n_userdata = nullptr)
-  : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port_client))
+    , void *n_userdata, int port)
+  try
+  : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
   , receive_cb(n_receive_cb)
   , userdata(n_userdata) {
+  start_receive();
+} catch (const std::exception &e) {
+  die("net init fail: %s", e.what());
+} catch (...) {
+  die("net init fail");
 }
 
 void net::start_receive() {
@@ -30,19 +36,17 @@ void net::start_receive() {
 
 void net::send(uint8_t *message, size_t len) {
   _socket.async_send_to(asio::buffer(message, len), _remote_endpoint
-      , [this, len](const asio::error_code &e, size_t bytes_tx) {
-        if (bytes_tx != len)
-          printf("somewhy %zu/%zu bytes have been sent\n", bytes_tx, len);
-        if (e && e != asio::error::message_size)
+      , [this](const asio::error_code &e, size_t bytes_tx) {
+        if (e)
           puts("some kind of error happened on sending");
         else
           puts("ok, sent");
       });
 }
 
-void net::set_endpoint(std::string hostname) {
+void net::set_endpoint(std::string hostname, int port) {
   _remote_endpoint = asio::ip::udp::endpoint(
-      asio::ip::address::from_string(hostname), port_serv);
+      asio::ip::address::from_string(hostname), port);
 }
 
 void packet_header::serialize(bytestream &b) {
@@ -86,9 +90,10 @@ void connection::ping() {
   _unreliable_messages.push(b);
 }
 
-connection::connection(screen *n_s)
+connection::connection(int port, screen *n_s)
   : _io()
   , _net_io_thread([&] {
+      puts("net thread start");
       while (!_io.stopped()) {
         try {
           _io.run();
@@ -99,8 +104,11 @@ connection::connection(screen *n_s)
         }
       }
     })
-  , _n(_io, receive, this)
-  , _outgoing_sequence(1)
+  , _n(_io, receive, this, port)
+  , _outgoing_sequence(0)
+  , _last_sequence_received(0)
+  , _sent_packets(0)
+  , _recvd_packets(0)
   , _ping_send_delay_ms(1500)
   , _ping_time_counter_ms(0)
   , _time_since_last_pong(0)
@@ -118,6 +126,7 @@ connection::~connection() {
 }
 
 void connection::update(double dt, double t) {
+  /*
   if (_connected) {
     _time_since_last_pong += dt;
     if (_time_since_last_pong > 5)
@@ -128,6 +137,7 @@ void connection::update(double dt, double t) {
       _ping_time_counter_ms -= _ping_send_delay_ms;
     }
   }
+  */
 
   if (_unreliable_messages.size() >= 64)
     die("message buffer overflow");
@@ -169,52 +179,26 @@ void connection::update(double dt, double t) {
   }
 }
 
-void connection::receive_pong(uint32_t time_sent_ms) {
-  _time_since_last_pong = 0;
-  uint32_t curr_ms = std::lround(_s->get_time_in_seconds() * 1000.);
-  printf("rtt: %d ms\n", curr_ms - time_sent_ms);
-}
-
 void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   connection *c = (connection*)userdata;
   print_packet(buffer, bytes_rx, "received packet");
-  switch (buffer[0]) {
-    case (uint8_t)server_message_type::ACK:
-      puts("type: ACK");
-      break;
-    case (uint8_t)server_message_type::PONG:
-      puts("type: PONG");
-      c->receive_pong((*((uint32_t*)(buffer + 1))));
-      break;
-    case (uint8_t)server_message_type::CONNECTION_REPLY:
-      puts("type: CONNECTION_REPLY");
-      break;
-    case (uint8_t)server_message_type::ERROR:
-      puts("type: ERROR");
-      switch (buffer[1]) {
-        case (uint8_t)server_error_type::NOT_MATCHING_PROTOCOL:
-          puts("type: NOT_MATCHING_PROTOCOL");
-          break;
-        default:
-          puts("unknown type");
-      }
-      break;
-    default:
-      puts("unknown type");
-  }
 }
 
-void connection::send() {
-
+void connection::send(bytestream msg) {
+  _unreliable_messages.push(msg);
 }
 
-void connection::connect(std::string remote_ip) {
-  _n.set_endpoint(remote_ip);
-  _n.start_receive();
+void connection::send_rel(bytestream msg) {
+  _reliable_messages.push(msg);
+}
 
-  connection_req_msg r;
-  bytestream b;
-  r.serialize(b);
-  _reliable_messages.push(b);
+void connection::test(std::string remote_ip, int remote_port) {
+  _n.set_endpoint(remote_ip, remote_port);
+
+  std::string text = "hi";
+  bytestream msg;
+  for (size_t i = 0; i < text.size(); ++i)
+    msg.write_uint8(text[i]);
+  send(msg);
 }
 

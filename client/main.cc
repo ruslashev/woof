@@ -14,7 +14,7 @@ static shader *vs, *fs;
 static vertexarray *vao;
 
 void graphics_load(screen *s) {
-  s->lock_mouse();
+  // s->lock_mouse();
 
   glClearColor(0.06f, 0.06f, 0.06f, 1);
 
@@ -88,8 +88,11 @@ void load(screen *s) {
 
   player.pos_x = player.pos_y = player.rotation = 0;
 
-  c = new connection(s);
-  c->connect("127.0.0.1");
+#ifdef WOOF_SERVER
+  c = new connection(port_serv, s);
+#else
+  c = new connection(port_client, s);
+#endif
 }
 
 void key_event(char key, bool down) {
