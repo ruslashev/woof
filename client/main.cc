@@ -183,7 +183,11 @@ void cleanup() {
 
 int main() {
   try {
-    screen s(800, 450);
+#ifdef WOOF_SERVER
+    screen s("woof server", 800, 450);
+#else
+    screen s("woof", 800, 450);
+#endif
 
     s.mainloop(load, key_event, mousemotion_event, mousebutton_event_cb, update
         , draw, cleanup);

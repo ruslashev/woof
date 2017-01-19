@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 #include <queue>
+#include <string>
 
 struct key_binder {
 };
@@ -11,10 +12,11 @@ struct key_binder {
 class screen {
   SDL_Window *_window;
   SDL_GLContext _gl_context;
+  std::string _title;
 public:
   int window_width, window_height;
   bool running;
-  screen(int n_window_width, int n_window_height);
+  screen(std::string n_title, int n_window_width, int n_window_height);
   ~screen();
   void mainloop(void (*load_cb)(screen*)
       , void (*key_event_cb)(char, bool)

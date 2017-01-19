@@ -1,15 +1,16 @@
 #include "screen.hh"
 #include "utils.hh"
 
-screen::screen(int n_window_width, int n_window_height)
-  : window_width(n_window_width)
+screen::screen(std::string n_title, int n_window_width, int n_window_height)
+  : _title(n_title)
+  , window_width(n_window_width)
   , window_height(n_window_height) {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
-  _window = SDL_CreateWindow("woof", SDL_WINDOWPOS_CENTERED
+  _window = SDL_CreateWindow(_title.c_str(), SDL_WINDOWPOS_CENTERED
       , SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
 
   _gl_context = SDL_GL_CreateContext(_window);
@@ -111,8 +112,8 @@ void screen::mainloop(void (*load_cb)(screen*)
           , fpsavg = (double)total_frames / get_time_in_seconds()
           , mspf = seconds_per_frame * 1000.;
         char title[256];
-        snprintf(title, 256, "woof | %7.2f ms/frame, %7.2f frames/s, %7.2f "
-            "frames/s avg", mspf, fps, fpsavg);
+        snprintf(title, 256, "%s | %7.2f ms/frame, %7.2f frames/s, %7.2f "
+            "frames/s avg", _title.c_str(), mspf, fps, fpsavg);
         SDL_SetWindowTitle(_window, title);
       }
     }
