@@ -39,7 +39,6 @@ enum class server_error_type : uint8_t {
 
 struct packet {
   uint16_t client_id;
-  uint8_t  reliable;
   uint32_t sequence;
   uint32_t ack;
   uint8_t  num_messages;
@@ -52,6 +51,11 @@ struct message {
   message_type type;
   message(message_type n_type);
   virtual void serialize(bytestream &b) = 0;
+};
+
+struct special_msg : message {
+  special_msg();
+  void serialize(bytestream &b) override;
 };
 
 struct connection_req_msg : message {
@@ -67,12 +71,13 @@ class connection {
   net _n;
   std::thread _net_io_thread;
 
-  std::queue<bytestream> _reliable_messages, _unreliable_messages;
-  bytestream _unacked_reliable_messages;
+  std::queue<bytestream> _messages;
+  bytestream _unacked_messages;
   uint32_t _outgoing_sequence, _last_sequence_received, _unacked_sequence;
   uint64_t _sent_packets, _ack_packets, _received_packets;
 
   uint16_t _client_id;
+
   double _ping_send_delay_ms, _ping_time_counter_ms, _time_since_last_pong;
 
   screen *_s; // for getting time
@@ -86,7 +91,6 @@ public:
   void update(double dt, double t);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send(bytestream msg);
-  void send_rel(bytestream msg);
   void test(std::string remote_ip, int remote_port);
   void print_stats();
 };

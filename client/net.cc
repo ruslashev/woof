@@ -50,24 +50,30 @@ void net::set_endpoint(std::string hostname, int port) {
 }
 
 void packet::serialize(bytestream &b) {
-  b.write_uint16(client_id);
-  b.write_uint8(reliable);
-  b.write_uint32(sequence);
-  b.write_uint32(ack);
+  b.write_uint16_net(client_id);
+  b.write_uint32_net(sequence);
+  b.write_uint32_net(ack);
   b.write_uint8(num_messages);
   b.append(serialized_messages);
 }
 
 void packet::deserialize(bytestream &b, bool &success) {
-  success |= b.read_uint16(client_id);
-  success |= b.read_uint8(reliable);
-  success |= b.read_uint32(sequence);
-  success |= b.read_uint32(ack);
+  success |= b.read_uint16_net(client_id);
+  success |= b.read_uint32_net(sequence);
+  success |= b.read_uint32_net(ack);
   success |= b.read_uint8(num_messages);
 }
 
 message::message(message_type n_type)
   : type(n_type) {
+}
+
+special_msg::special_msg()
+  : message(message_type::SPECIAL) {
+}
+
+void special_msg::serialize(bytestream &b) {
+  b.write_uint8((uint8_t)type);
 }
 
 connection_req_msg::connection_req_msg()
@@ -77,7 +83,7 @@ connection_req_msg::connection_req_msg()
 
 void connection_req_msg::serialize(bytestream &b) {
   b.write_uint8((uint8_t)type);
-  b.write_uint16(htons(protocol_ver));
+  b.write_uint16_net(protocol_ver);
 }
 
 void connection::ping() {
@@ -132,46 +138,33 @@ void connection::update(double dt, double t) {
     }
   }
   */
-  if (_unreliable_messages.size() >= 64)
+  if (_messages.size() >= 64)
     die("message buffer overflow");
-  if (_reliable_messages.size() >= 64)
-    die("rel. message buffer overflow");
 
-  if (!_unreliable_messages.empty() || !_reliable_messages.empty()
-      || !_unacked_reliable_messages.empty()) {
+  if (!_messages.empty() || !_unacked_messages.empty()) {
     packet packet;
     packet.client_id = _client_id;
-    packet.reliable = 0;
-    packet.sequence = _outgoing_sequence++;
     packet.ack = _last_sequence_received;
     packet.num_messages = 0;
 
-    if (!_unreliable_messages.empty())
-      for (size_t i = 0; i < _unreliable_messages.size(); i++) {
-        packet.serialized_messages.append(_unreliable_messages.front());
-        ++packet.num_messages;
-        _unreliable_messages.pop();
-      }
-
-    if (!_unacked_reliable_messages.empty()) {
-      packet.reliable = 1;
-      packet.serialized_messages.append(_unacked_reliable_messages);
+    if (!_unacked_messages.empty()) {
+      packet.serialized_messages = _unacked_messages;
+      packet.sequence = _unacked_sequence;
     } else {
-      if (!_reliable_messages.empty()) {
-        for (size_t i = 0; i < _reliable_messages.size(); i++) {
-          _unacked_reliable_messages.append(_reliable_messages.front());
-          ++packet.num_messages;
-          _reliable_messages.pop();
-        }
-        packet.reliable = 1;
-        packet.serialized_messages.append(_unacked_reliable_messages);
-        _unacked_sequence = packet.sequence;
+      // _messages is not empty
+      for (size_t i = 0; i < _messages.size(); ++i) {
+        _unacked_messages.append(_messages.front());
+        ++packet.num_messages;
+        _messages.pop();
       }
+      packet.serialized_messages.append(_unacked_messages);
+      packet.sequence = _outgoing_sequence++;
+      _unacked_sequence = packet.sequence;
     }
 
     bytestream b;
     packet.serialize(b);
-    // b.print("new packet");
+    b.print("new packet");
     _n.send(b.data(), b.size());
     ++_sent_packets;
     print_stats();
@@ -187,25 +180,26 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   p.deserialize(packet_bs, success);
   if (!success)
     packet_bs.print("malformed packet");
+  if (p.sequence != c->_last_sequence_received + 1)
+    return;
   c->_last_sequence_received = p.sequence;
 #ifdef WOOF_SERVER
-  message dummy_ack(message_type::SPECIAL);
-  bytestream dummy_ack_bs;
-  dummy_ack.serialize(dummy_ack_bs);
-  send(dummy_ack_bs);
+  special_msg dummy_ack_msg;
+  bytestream dummy_ack;
+  dummy_ack_msg.serialize(dummy_ack);
+  c->send(dummy_ack);
 #else
-
+  if (c->_last_sequence_received == c->_unacked_sequence) {
+    c->_unacked_messages.clear();
+    ++c->_ack_packets;
+  }
 #endif
   ++c->_received_packets;
   c->print_stats();
 }
 
 void connection::send(bytestream msg) {
-  _unreliable_messages.push(msg);
-}
-
-void connection::send_rel(bytestream msg) {
-  _reliable_messages.push(msg);
+  _messages.push(msg);
 }
 
 void connection::test(std::string remote_ip, int remote_port) {
@@ -216,11 +210,10 @@ void connection::test(std::string remote_ip, int remote_port) {
   for (size_t i = 0; i < text.size(); ++i)
     msg.write_uint8(text[i]);
   send(msg);
-  // send_rel(msg);
 }
 
 void connection::print_stats() {
-  printf("sent_packets=%lu, received_packets=%lu\n", _sent_packets
-      , _received_packets);
+  printf("sent_packets=%lu, ack_packets=%lu, received_packets=%lu\n"
+      , _sent_packets, _ack_packets, _received_packets);
 }
 
