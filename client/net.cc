@@ -25,9 +25,9 @@ void net::start_receive() {
         else if (e || bytes_rx == 0)
           warning("something is wrong");
         else {
-          printf("receive from %s:%d\n"
-              , remote_endpoint.address().to_string().c_str()
-              , remote_endpoint.port());
+          // printf("receive from %s:%d\n"
+          //     , remote_endpoint.address().to_string().c_str()
+          //     , remote_endpoint.port());
           receive_cb(userdata, _recv_buffer, bytes_rx);
         }
         start_receive();
@@ -39,8 +39,8 @@ void net::send(uint8_t *message, size_t len) {
       , [this](const asio::error_code &e, size_t bytes_tx) {
         if (e)
           puts("some kind of error happened on sending");
-        else
-          puts("ok, sent");
+        // else
+        //   puts("ok, sent");
       });
 }
 
@@ -70,16 +70,6 @@ message::message(message_type n_type)
   : type(n_type) {
 }
 
-ping_msg::ping_msg()
-  : message(message_type::PING)
-  , time_sent_ms(std::numeric_limits<uint32_t>::max()) {
-}
-
-void ping_msg::serialize(bytestream &b) {
-  b.write_uint8((uint8_t)type);
-  b.write_uint32(htonl(time_sent_ms));
-}
-
 connection_req_msg::connection_req_msg()
   : message(message_type::CONNECTION_REQ)
   , protocol_ver(protocol_version) {
@@ -91,12 +81,6 @@ void connection_req_msg::serialize(bytestream &b) {
 }
 
 void connection::ping() {
-  ping_msg p;
-  p.type = message_type::PING;
-  p.time_sent_ms = std::lround(_s->get_time_in_seconds() * 1000.);
-  bytestream b;
-  p.serialize(b);
-  _unreliable_messages.push(b);
 }
 
 connection::connection(int port, screen *n_s)
@@ -116,12 +100,13 @@ connection::connection(int port, screen *n_s)
     })
   , _outgoing_sequence(0)
   , _last_sequence_received(0)
+  , _unacked_sequence(0)
   , _sent_packets(0)
+  , _ack_packets(0)
   , _received_packets(0)
   , _ping_send_delay_ms(1500)
   , _ping_time_counter_ms(0)
   , _time_since_last_pong(0)
-  , _connection_state(connection_state_type::disconnected)
   , _s(n_s)
   , _connected(false) {
   srand(time(nullptr));
@@ -173,20 +158,20 @@ void connection::update(double dt, double t) {
       packet.serialized_messages.append(_unacked_reliable_messages);
     } else {
       if (!_reliable_messages.empty()) {
-        packet.reliable = 1;
-        bytestream rel_messages;
         for (size_t i = 0; i < _reliable_messages.size(); i++) {
           _unacked_reliable_messages.append(_reliable_messages.front());
           ++packet.num_messages;
           _reliable_messages.pop();
         }
+        packet.reliable = 1;
         packet.serialized_messages.append(_unacked_reliable_messages);
+        _unacked_sequence = packet.sequence;
       }
     }
 
-    packet.serialized_messages.print("new packet");
     bytestream b;
     packet.serialize(b);
+    // b.print("new packet");
     _n.send(b.data(), b.size());
     ++_sent_packets;
     print_stats();
@@ -195,7 +180,22 @@ void connection::update(double dt, double t) {
 
 void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   connection *c = (connection*)userdata;
-  print_packet(buffer, bytes_rx, "received packet");
+  // print_packet(buffer, bytes_rx, "received packet");
+  bytestream packet_bs(buffer, bytes_rx);
+  packet p;
+  bool success;
+  p.deserialize(packet_bs, success);
+  if (!success)
+    packet_bs.print("malformed packet");
+  c->_last_sequence_received = p.sequence;
+#ifdef WOOF_SERVER
+  message dummy_ack(message_type::SPECIAL);
+  bytestream dummy_ack_bs;
+  dummy_ack.serialize(dummy_ack_bs);
+  send(dummy_ack_bs);
+#else
+
+#endif
   ++c->_received_packets;
   c->print_stats();
 }
@@ -216,10 +216,11 @@ void connection::test(std::string remote_ip, int remote_port) {
   for (size_t i = 0; i < text.size(); ++i)
     msg.write_uint8(text[i]);
   send(msg);
+  // send_rel(msg);
 }
 
 void connection::print_stats() {
-  printf("_sent_packets=%llu, _received_packets=%llu\n", _sent_packets
+  printf("sent_packets=%lu, received_packets=%lu\n", _sent_packets
       , _received_packets);
 }
 

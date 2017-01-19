@@ -22,27 +22,19 @@ public:
 };
 
 enum class message_type : uint8_t {
-  ACK = 0,
-  PING = 1,
+  SPECIAL = 0,
+  ISALIVE = 1,
   CONNECTION_REQ = 2
 };
 
 enum class server_message_type : uint8_t {
-  ACK = 0,
-  PONG = 1,
-  CONNECTION_REPLY = 2,
-  ERROR = 3
+  SPECIAL = 0,
+  CONNECTION_REPLY = 1,
+  ERROR = 2
 };
 
 enum class server_error_type : uint8_t {
   NOT_MATCHING_PROTOCOL = 0
-};
-
-enum class connection_state_type : uint8_t {
-  disconnected,
-  connecting,
-  connection_failed,
-  connected
 };
 
 struct packet {
@@ -62,12 +54,6 @@ struct message {
   virtual void serialize(bytestream &b) = 0;
 };
 
-struct ping_msg : message {
-  uint32_t time_sent_ms;
-  ping_msg();
-  void serialize(bytestream &b) override;
-};
-
 struct connection_req_msg : message {
   uint16_t protocol_ver;
   connection_req_msg();
@@ -83,12 +69,11 @@ class connection {
 
   std::queue<bytestream> _reliable_messages, _unreliable_messages;
   bytestream _unacked_reliable_messages;
-  uint32_t _outgoing_sequence, _last_sequence_received;
-  uint64_t _sent_packets, _received_packets;
+  uint32_t _outgoing_sequence, _last_sequence_received, _unacked_sequence;
+  uint64_t _sent_packets, _ack_packets, _received_packets;
 
   uint16_t _client_id;
   double _ping_send_delay_ms, _ping_time_counter_ms, _time_since_last_pong;
-  connection_state_type _connection_state;
 
   screen *_s; // for getting time
 
