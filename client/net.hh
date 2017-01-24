@@ -44,7 +44,7 @@ struct packet {
   uint8_t  num_messages;
   bytestream serialized_messages;
   void serialize(bytestream &b);
-  bool deserialize(bytestream &b, bool &success);
+  void deserialize(bytestream &b, bool &success);
 };
 
 struct message {
@@ -72,8 +72,9 @@ class connection {
   std::thread _net_io_thread;
 
   std::queue<bytestream> _messages;
-  bytestream _unacked_messages;
-  uint32_t _outgoing_sequence, _last_sequence_received, _unacked_sequence;
+  bool _unacked_packet_exists;
+  packet _unacked_packet;
+  uint32_t _outgoing_sequence, _last_sequence_received;
   uint64_t _sent_packets, _ack_packets, _received_packets;
 
   uint16_t _client_id;

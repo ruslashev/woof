@@ -38,7 +38,7 @@ void net::send(uint8_t *message, size_t len) {
   _socket.async_send_to(asio::buffer(message, len), _remote_endpoint
       , [this](const asio::error_code &e, size_t bytes_tx) {
         if (e)
-          puts("some kind of error happened on sending");
+          printf("net::send error: %s\n", e.message().c_str());
         // else
         //   puts("ok, sent");
       });
@@ -58,7 +58,7 @@ void packet::serialize(bytestream &b) {
 }
 
 void packet::deserialize(bytestream &b, bool &success) {
-  success &= b.read_uint16_net(client_id);
+  success  = b.read_uint16_net(client_id);
   success &= b.read_uint32_net(sequence);
   success &= b.read_uint32_net(ack);
   success &= b.read_uint8(num_messages);
@@ -104,9 +104,9 @@ connection::connection(int port, screen *n_s)
         }
       }
     })
+  , _unacked_packet_exists(false)
   , _outgoing_sequence(0)
   , _last_sequence_received(0)
-  , _unacked_sequence(0)
   , _sent_packets(0)
   , _ack_packets(0)
   , _received_packets(0)
@@ -141,31 +141,32 @@ void connection::update(double dt, double t) {
   if (_messages.size() >= 64)
     die("message buffer overflow");
 
-  if (!_messages.empty() || !_unacked_messages.empty()) {
-    packet packet;
-    packet.client_id = _client_id;
-    packet.ack = _last_sequence_received;
-    packet.num_messages = 0;
+  bytestream serialized_packet;
 
-    if (!_unacked_messages.empty()) {
-      packet.serialized_messages = _unacked_messages;
-      packet.sequence = _unacked_sequence;
-    } else {
-      // _messages is not empty
-      for (size_t i = 0; i < _messages.size(); ++i) {
-        _unacked_messages.append(_messages.front());
-        ++packet.num_messages;
-        _messages.pop();
-      }
-      packet.serialized_messages.append(_unacked_messages);
-      packet.sequence = _outgoing_sequence++;
-      _unacked_sequence = packet.sequence;
+  if (_unacked_packet_exists) {
+    _unacked_packet.serialize(serialized_packet);
+    serialized_packet.print("existing packet");
+  }
+
+  if (!_messages.empty()) {
+    packet new_packet;
+    new_packet.client_id = _client_id;
+    new_packet.sequence = _outgoing_sequence++;
+    new_packet.ack = _last_sequence_received;
+    new_packet.num_messages = 0;
+    for (size_t i = 0; i < _messages.size(); ++i) {
+      new_packet.serialized_messages.append(_messages.front());
+      ++new_packet.num_messages;
+      _messages.pop();
     }
+    _unacked_packet_exists = true;
+    _unacked_packet = new_packet;
+    new_packet.serialize(serialized_packet);
+    serialized_packet.print("new packet");
+  }
 
-    bytestream b;
-    packet.serialize(b);
-    b.print("new packet");
-    _n.send(b.data(), b.size());
+  if (_unacked_packet_exists || !_messages.empty()) {
+    _n.send(serialized_packet.data(), serialized_packet.size());
     ++_sent_packets;
     print_stats();
   }
@@ -173,25 +174,28 @@ void connection::update(double dt, double t) {
 
 void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   connection *c = (connection*)userdata;
-  // print_packet(buffer, bytes_rx, "received packet");
+  print_packet(buffer, bytes_rx, "receive");
   bytestream packet_bs(buffer, bytes_rx);
   packet p;
   bool success;
   p.deserialize(packet_bs, success);
   if (!success)
-    packet_bs.print("malformed packet");
+    die("malformed packet");
+  printf("client_id=%d, sequence=%d, ack=%d, num_messages=%d\n", p.client_id
+      , p.sequence, p.ack, p.num_messages);
   if (!(p.sequence == 0 && c->_last_sequence_received == 0))
     if (p.sequence != c->_last_sequence_received + 1)
       return;
   c->_last_sequence_received = p.sequence;
 #ifdef WOOF_SERVER
-  special_msg dummy_ack_msg;
-  bytestream dummy_ack;
-  dummy_ack_msg.serialize(dummy_ack);
-  c->send(dummy_ack);
+  std::string text = "))";
+  bytestream msg;
+  for (size_t i = 0; i < text.size(); ++i)
+    msg.write_uint8(text[i]);
+  c->send(msg);
 #else
-  if (c->_last_sequence_received == c->_unacked_sequence) {
-    c->_unacked_messages.clear();
+  if (c->_last_sequence_received == c->_unacked_packet.sequence) {
+    c->_unacked_packet_exists = false;
     ++c->_ack_packets;
   }
 #endif
@@ -214,7 +218,7 @@ void connection::test(std::string remote_ip, int remote_port) {
 }
 
 void connection::print_stats() {
-  printf("sent=%lu, ack=%lu, received=%lu\n", _sent_packets, _ack_packets
+  printf("stats: sent=%lu, ack=%lu, received=%lu\n", _sent_packets, _ack_packets
       , _received_packets);
 }
 
