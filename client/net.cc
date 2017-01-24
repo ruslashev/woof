@@ -180,8 +180,9 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   p.deserialize(packet_bs, success);
   if (!success)
     packet_bs.print("malformed packet");
-  if (p.sequence != c->_last_sequence_received + 1)
-    return;
+  if (!(p.sequence == 0 && c->_last_sequence_received == 0))
+    if (p.sequence != c->_last_sequence_received + 1)
+      return;
   c->_last_sequence_received = p.sequence;
 #ifdef WOOF_SERVER
   special_msg dummy_ack_msg;
