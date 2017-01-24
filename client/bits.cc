@@ -20,43 +20,37 @@ void bytestream::clear() {
   _rindex = 0;
 }
 
-void bytestream::write(uint8_t value) {
+void bytestream::write_uint8(uint8_t value) {
   _data.resize(_data.size() + 1);
   *(_data.data() + _index) = value;
   _index += 1;
 }
 
-void bytestream::write(uint16_t value) {
+void bytestream::write_uint16(uint16_t value) {
   _data.resize(_data.size() + 2);
   *((uint16_t*)(_data.data() + _index)) = value;
   _index += 2;
 }
 
-void bytestream::write(uint32_t value) {
+void bytestream::write_uint32(uint32_t value) {
   _data.resize(_data.size() + 4);
   *((uint32_t*)(_data.data() + _index)) = value;
   _index += 4;
 }
 
-void bytestream::write_net(uint8_t value) {
-  _data.resize(_data.size() + 1);
-  *(_data.data() + _index) = value;
-  _index += 1;
-}
-
-void bytestream::write_net(uint16_t value) {
+void bytestream::write_uint16_net(uint16_t value) {
   _data.resize(_data.size() + 2);
   *((uint16_t*)(_data.data() + _index)) = htons(value);
   _index += 2;
 }
 
-void bytestream::write_net(uint32_t value) {
+void bytestream::write_uint32_net(uint32_t value) {
   _data.resize(_data.size() + 4);
   *((uint32_t*)(_data.data() + _index)) = htonl(value);
   _index += 4;
 }
 
-bool bytestream::read(uint8_t &value) {
+bool bytestream::read_uint8(uint8_t &value) {
   if (_rindex + 1 <= _data.size()) {
     value = *((uint8_t*)(_data.data() + _rindex));
     _rindex += 1;
@@ -65,7 +59,7 @@ bool bytestream::read(uint8_t &value) {
     return false;
 }
 
-bool bytestream::read(uint16_t &value) {
+bool bytestream::read_uint16(uint16_t &value) {
   if (_rindex + 2 <= _data.size()) {
     value = *((uint16_t*)(_data.data() + _rindex));
     _rindex += 2;
@@ -74,7 +68,7 @@ bool bytestream::read(uint16_t &value) {
     return false;
 }
 
-bool bytestream::read(uint32_t &value) {
+bool bytestream::read_uint32(uint32_t &value) {
   if (_rindex + 4 <= _data.size()) {
     value = *((uint32_t*)(_data.data() + _rindex));
     _rindex += 4;
@@ -83,16 +77,7 @@ bool bytestream::read(uint32_t &value) {
     return false;
 }
 
-bool bytestream::read_net(uint8_t &value) {
-  if (_rindex + 1 <= _data.size()) {
-    value = *((uint8_t*)(_data.data() + _rindex));
-    _rindex += 1;
-    return true;
-  } else
-    return false;
-}
-
-bool bytestream::read_net(uint16_t &value) {
+bool bytestream::read_uint16_net(uint16_t &value) {
   if (_rindex + 2 <= _data.size()) {
     value = ntohs(*((uint16_t*)(_data.data() + _rindex)));
     _rindex += 2;
@@ -101,7 +86,7 @@ bool bytestream::read_net(uint16_t &value) {
     return false;
 }
 
-bool bytestream::read_net(uint32_t &value) {
+bool bytestream::read_uint32_net(uint32_t &value) {
   if (_rindex + 4 <= _data.size()) {
     value = ntohl(*((uint32_t*)(_data.data() + _rindex)));
     _rindex += 4;
@@ -122,15 +107,15 @@ void bytestream::print(const char *msg) {
   print_packet(_data.data(), _data.size(), msg);
 }
 
-bytestream::bytestream()
-  : _index(0)
-  , _rindex(0) {
-  _data.reserve(128);
-}
-
 bytestream::bytestream(const uint8_t *buffer, const size_t size)
   : _index(0)
   , _rindex(0) {
   _data.assign(buffer, buffer + size);
+}
+
+bytestream::bytestream()
+  : _index(0)
+  , _rindex(0) {
+  _data.reserve(128);
 }
 

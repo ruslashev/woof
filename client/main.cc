@@ -135,19 +135,16 @@ void mousebutton_event_cb(int button, bool down) {
 void update(double dt, double t, screen *s) {
   c->update(dt, t);
 
+  static int i = 0;
+  if (++i % 30 == 0) {
+#ifndef WOOF_SERVER
+    c->test("127.0.0.1", port_serv);
+#endif
+  }
+
   sp->use_this_prog();
   glUniform1f(time_unif, t);
   sp->dont_use_this_prog();
-
-  static uint64_t i = 0;
-  if (i++ % 50 == 0) {
-#ifdef WOOF_SERVER
-    c->connect("127.0.0.1", port_client);
-#else
-    c->connect("127.0.0.1", port_serv);
-#endif
-    c->print_stats();
-  }
 }
 
 void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
@@ -186,7 +183,11 @@ void cleanup() {
 
 int main() {
   try {
-    screen s(800, 450);
+#ifdef WOOF_SERVER
+    screen s("woof server", 800, 450);
+#else
+    screen s("woof", 800, 450);
+#endif
 
     s.mainloop(load, key_event, mousemotion_event, mousebutton_event_cb, update
         , draw, cleanup);

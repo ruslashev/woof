@@ -14,7 +14,7 @@
 #define assertf(X, ...) \
   do { \
     if (!(X)) { \
-      printf("assertion `%s' failed in ", #X); \
+      printf("assertion `%s' failed at ", #X); \
       info() \
       printf(": "); \
       printf(__VA_ARGS__); \
