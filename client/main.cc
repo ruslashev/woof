@@ -90,8 +90,10 @@ void load(screen *s) {
 
 #ifdef WOOF_SERVER
   c = new connection(port_serv, s);
+  c->set_endpoint("127.0.0.1", port_client);
 #else
   c = new connection(port_client, s);
+  c->set_endpoint("127.0.0.1", port_serv);
 #endif
 }
 
@@ -135,12 +137,9 @@ void mousebutton_event_cb(int button, bool down) {
 void update(double dt, double t, screen *s) {
   c->update(dt, t);
 
-  static int i = 0;
-  if (++i % 30 == 0) {
 #ifndef WOOF_SERVER
-    c->test("127.0.0.1", port_serv);
+  c->test();
 #endif
-  }
 
   sp->use_this_prog();
   glUniform1f(time_unif, t);

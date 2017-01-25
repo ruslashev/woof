@@ -50,30 +50,24 @@ void net::set_endpoint(std::string hostname, int port) {
 }
 
 void packet::serialize(bytestream &b) {
-  b.write_uint16_net(client_id);
+  b.write_uint8(reliable);
   b.write_uint32_net(sequence);
   b.write_uint32_net(ack);
+  b.write_uint16_net(client_id);
   b.write_uint8(num_messages);
   b.append(serialized_messages);
 }
 
 void packet::deserialize(bytestream &b, bool &success) {
-  success  = b.read_uint16_net(client_id);
+  success  = b.read_uint8(reliable);
   success &= b.read_uint32_net(sequence);
   success &= b.read_uint32_net(ack);
+  success &= b.read_uint16_net(client_id);
   success &= b.read_uint8(num_messages);
 }
 
 message::message(message_type n_type)
   : type(n_type) {
-}
-
-special_msg::special_msg()
-  : message(message_type::SPECIAL) {
-}
-
-void special_msg::serialize(bytestream &b) {
-  b.write_uint8((uint8_t)type);
 }
 
 connection_req_msg::connection_req_msg()
@@ -138,34 +132,61 @@ void connection::update(double dt, double t) {
     }
   }
   */
+  if (_unrel_messages.size() >= 64)
+    die("unrel message buffer overflow");
   if (_messages.size() >= 64)
     die("message buffer overflow");
 
-  bytestream serialized_packet;
+  if (_unacked_packet_exists || !_unrel_messages.empty() || !_messages.empty()) {
+    bytestream serialized_packet;
 
-  if (_unacked_packet_exists) {
-    _unacked_packet.serialize(serialized_packet);
-    serialized_packet.print("existing packet");
-  }
-
-  if (!_messages.empty()) {
-    packet new_packet;
-    new_packet.client_id = _client_id;
-    new_packet.sequence = _outgoing_sequence++;
-    new_packet.ack = _last_sequence_received;
-    new_packet.num_messages = 0;
-    for (size_t i = 0; i < _messages.size(); ++i) {
-      new_packet.serialized_messages.append(_messages.front());
-      ++new_packet.num_messages;
-      _messages.pop();
+    if (_unacked_packet_exists) {
+      if (!_unrel_messages.empty())
+        for (size_t i = 0; i < _unrel_messages.size(); ++i) {
+          _unacked_packet.serialized_messages.append(_unrel_messages.front());
+          ++_unacked_packet.num_messages;
+          _unrel_messages.pop();
+        }
+      _unacked_packet.serialize(serialized_packet);
+      puts("existing packet");
+    } else if (!_messages.empty()) {
+      packet new_packet;
+      new_packet.reliable = 1;
+      new_packet.sequence = _outgoing_sequence++;
+      new_packet.ack = _last_sequence_received;
+      new_packet.client_id = _client_id;
+      new_packet.num_messages = 0;
+      for (size_t i = 0; i < _messages.size(); ++i) {
+        new_packet.serialized_messages.append(_messages.front());
+        ++new_packet.num_messages;
+        _messages.pop();
+      }
+      _unacked_packet_exists = true;
+      _unacked_packet = new_packet;
+      if (!_unrel_messages.empty())
+        for (size_t i = 0; i < _unrel_messages.size(); ++i) {
+          new_packet.serialized_messages.append(_unrel_messages.front());
+          ++new_packet.num_messages;
+          _unrel_messages.pop();
+        }
+      new_packet.serialize(serialized_packet);
+      puts("new packet");
+    } else if (!_unrel_messages.empty()) {
+      packet new_packet;
+      new_packet.reliable = 0;
+      new_packet.sequence = _outgoing_sequence++;
+      new_packet.ack = _last_sequence_received;
+      new_packet.client_id = _client_id;
+      new_packet.num_messages = 0;
+      for (size_t i = 0; i < _unrel_messages.size(); ++i) {
+        new_packet.serialized_messages.append(_unrel_messages.front());
+        ++new_packet.num_messages;
+        _unrel_messages.pop();
+      }
+      new_packet.serialize(serialized_packet);
+      puts("new packet with unrel msgs only");
     }
-    _unacked_packet_exists = true;
-    _unacked_packet = new_packet;
-    new_packet.serialize(serialized_packet);
-    serialized_packet.print("new packet");
-  }
 
-  if (_unacked_packet_exists || !_messages.empty()) {
     _n.send(serialized_packet.data(), serialized_packet.size());
     ++_sent_packets;
     print_stats();
@@ -174,47 +195,51 @@ void connection::update(double dt, double t) {
 
 void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   connection *c = (connection*)userdata;
-  print_packet(buffer, bytes_rx, "receive");
+  // print_packet(buffer, bytes_rx, "receive");
+  puts("received packet");
   bytestream packet_bs(buffer, bytes_rx);
   packet p;
   bool success;
   p.deserialize(packet_bs, success);
   if (!success)
     die("malformed packet");
-  printf("client_id=%d, sequence=%d, ack=%d, num_messages=%d\n", p.client_id
-      , p.sequence, p.ack, p.num_messages);
+  ++c->_received_packets;
   if (!(p.sequence == 0 && c->_last_sequence_received == 0))
     if (p.sequence != c->_last_sequence_received + 1)
       return;
   c->_last_sequence_received = p.sequence;
+  if (c->_last_sequence_received == c->_unacked_packet.sequence) {
+    c->_unacked_packet_exists = false;
+    ++c->_ack_packets;
+  }
+  c->print_stats();
 #ifdef WOOF_SERVER
   std::string text = "))";
   bytestream msg;
   for (size_t i = 0; i < text.size(); ++i)
     msg.write_uint8(text[i]);
   c->send(msg);
-#else
-  if (c->_last_sequence_received == c->_unacked_packet.sequence) {
-    c->_unacked_packet_exists = false;
-    ++c->_ack_packets;
-  }
 #endif
-  ++c->_received_packets;
-  c->print_stats();
 }
 
 void connection::send(bytestream msg) {
+  _unrel_messages.push(msg);
+}
+
+void connection::send_rel(bytestream msg) {
   _messages.push(msg);
 }
 
-void connection::test(std::string remote_ip, int remote_port) {
+void connection::set_endpoint(std::string remote_ip, int remote_port) {
   _n.set_endpoint(remote_ip, remote_port);
+}
 
+void connection::test() {
   std::string text = "hi";
   bytestream msg;
   for (size_t i = 0; i < text.size(); ++i)
     msg.write_uint8(text[i]);
-  send(msg);
+  send_rel(msg);
 }
 
 void connection::print_stats() {

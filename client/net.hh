@@ -38,9 +38,10 @@ enum class server_error_type : uint8_t {
 };
 
 struct packet {
-  uint16_t client_id;
+  uint8_t  reliable;
   uint32_t sequence;
   uint32_t ack;
+  uint16_t client_id;
   uint8_t  num_messages;
   bytestream serialized_messages;
   void serialize(bytestream &b);
@@ -51,11 +52,6 @@ struct message {
   message_type type;
   message(message_type n_type);
   virtual void serialize(bytestream &b) = 0;
-};
-
-struct special_msg : message {
-  special_msg();
-  void serialize(bytestream &b) override;
 };
 
 struct connection_req_msg : message {
@@ -71,7 +67,7 @@ class connection {
   net _n;
   std::thread _net_io_thread;
 
-  std::queue<bytestream> _messages;
+  std::queue<bytestream> _unrel_messages, _messages;
   bool _unacked_packet_exists;
   packet _unacked_packet;
   uint32_t _outgoing_sequence, _last_sequence_received;
@@ -92,7 +88,9 @@ public:
   void update(double dt, double t);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send(bytestream msg);
-  void test(std::string remote_ip, int remote_port);
+  void send_rel(bytestream msg);
+  void set_endpoint(std::string remote_ip, int remote_port);
+  void test();
   void print_stats();
 };
 

@@ -59,7 +59,7 @@ void screen::mainloop(void (*load_cb)(screen*)
   while (running) {
     double real_time = get_time_in_seconds()
       , elapsed = real_time - current_time;
-    elapsed = std::min(elapsed, max_update_ticks * dt);
+    // elapsed = std::min(elapsed, max_update_ticks * dt);
     current_time = real_time;
     accumulator += elapsed;
 
