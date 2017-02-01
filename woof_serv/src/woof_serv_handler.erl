@@ -1,6 +1,17 @@
 -module(woof_serv_handler).
--export([start_link/1]).
+-export([handle/1]).
 
-start_link(Packet) ->
-    io:format("Packet ~p~n", [Packet]).
+handle(Packet) ->
+    try
+        io:format("processing packet: ~p~n", [Packet]),
+        parse(Packet)
+    catch
+        error:{ badmatch, _ } -> io:format("woof_serv_handler: malformed packet");
+        _:E -> io:format("woof_serv_handler: unhandled exception:  ~p~n~p",
+                         [E, erlang:get_stacktrace()])
+    end.
+
+parse(Packet) ->
+    <<_Reliable:8, _Sequence:31, _Ack:32, _ClientId:16, _NumMessages:8,
+      _Messages/binary>> = Packet.
 
