@@ -1,7 +1,7 @@
 #include "screen.hh"
 #include "utils.hh"
 
-screen::screen(std::string n_title, int n_window_width, int n_window_height)
+screen::screen(const std::string &n_title, int n_window_width, int n_window_height)
   : _title(n_title)
   , window_width(n_window_width)
   , window_height(n_window_height) {

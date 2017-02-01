@@ -127,8 +127,8 @@ void key_event(char key, bool down) {
 }
 
 void mousemotion_event(float xrel, float yrel, int, int) {
-  const float sensitivity = 2.2, m_yaw = 0.022
-    , mouse_dx = xrel * sensitivity * m_yaw;
+  // const float sensitivity = 2.2, m_yaw = 0.022
+  //   , mouse_dx = xrel * sensitivity * m_yaw;
 }
 
 void mousebutton_event_cb(int button, bool down) {
