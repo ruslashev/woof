@@ -21,6 +21,8 @@ public:
   void set_endpoint(std::string hostname, int port);
 };
 
+const uint16_t protocol_version = 1;
+
 enum class message_type : uint8_t {
   SPECIAL = 0,
   ISALIVE = 1,
@@ -59,8 +61,6 @@ struct connection_req_msg : message {
   connection_req_msg();
   void serialize(bytestream &b) override;
 };
-
-const uint16_t protocol_version = 1;
 
 class connection {
   asio::io_service _io;
