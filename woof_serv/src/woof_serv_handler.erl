@@ -6,12 +6,12 @@ handle(Packet) ->
         io:format("processing packet: ~p~n", [Packet]),
         parse(Packet)
     catch
-        error:{ badmatch, _ } -> io:format("woof_serv_handler: malformed packet");
+        error:{ badmatch, _ } -> io:format("woof_serv_handler: malformed packet~n");
         _:E -> io:format("woof_serv_handler: unhandled exception:  ~p~n~p",
                          [E, erlang:get_stacktrace()])
     end.
 
 parse(Packet) ->
-    <<_Reliable:8, _Sequence:31, _Ack:32, _ClientId:16, _NumMessages:8,
+    <<_Reliable:8, _Sequence:32, _Ack:32, _ClientId:16, _NumMessages:8,
       _Messages/binary>> = Packet.
 

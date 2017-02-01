@@ -1,10 +1,10 @@
--module(woof_serv_supersup).
+-module(woof_serv_sup).
 -behaviour(supervisor).
 -export([start_link/0]).
 -export([init/1]).
 
 start_link() ->
-    supervisor:start_link({ local, woof_serv_supersup }, ?MODULE, []).
+    supervisor:start_link({ local, woof_serv_sup }, ?MODULE, []).
 
 init([]) ->
     { ok, { { one_for_one, 5, 10 },
@@ -13,7 +13,10 @@ init([]) ->
                permanent, 5 * 1000, worker, [woof_serv_listener] },
              { woof_serv_handler_sup,
                { woof_serv_handler_sup, start_link, [] },
-               permanent, 5 * 1000, supervisor, [woof_serv_handler_sup] }
+               permanent, 5 * 1000, supervisor, [woof_serv_handler_sup] },
+             { woof_serv_main_loop,
+               { woof_serv_main_loop, start_link, [] },
+               permanent, 5 * 1000, worker, [woof_serv_main_loop] }
             ]
           }
     }.

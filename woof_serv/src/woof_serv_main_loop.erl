@@ -1,19 +1,22 @@
 -module(woof_serv_main_loop).
 -export([start_link/0]).
+-export([init/1]).
 
 -record(client, { client_id, ip }).
 
 start_link() ->
-    spawn_link(fun init/0).
+    proc_lib:start_link(woof_serv_main_loop, init, [self()]).
 
-init() ->
+init(Parent) ->
+    register(woof_serv_main_loop, self()),
+    proc_lib:init_ack(Parent, { ok, self() }),
     ets:new(clients, [set, named_table, public]),
-    loop([]).
+    loop().
 
-loop(Clients) ->
+loop() ->
     receive
 
     after 10 ->
-        loop(Clients)
+        loop()
     end.
 
