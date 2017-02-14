@@ -132,9 +132,9 @@ void connection::update(double dt, double t) {
     }
   }
   */
-  if (_unrel_messages.size() >= 64)
+  if (_unrel_messages.size() > 64)
     die("unrel message buffer overflow");
-  if (_messages.size() >= 64)
+  if (_messages.size() > 64)
     die("message buffer overflow");
 
   if (_unacked_packet_exists || !_unrel_messages.empty() || !_messages.empty()) {

@@ -14,8 +14,8 @@
         { reliable
         , sequence
         , ack
-        , client_id
-        , num_messages
+        , client_id = 0
+        , num_messages = 0
         , serialized_messages
         }).
 

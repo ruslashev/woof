@@ -13,7 +13,7 @@ handle(RemoteIp, Packet) ->
     end.
 
 parse(RemoteIp, Packet) ->
-    <<_RxReliable:8, RxSequence:32, RxAck:32, RxClientId:16, _RxNumMessages:8,
+    <<_RxReliable:8, RxSequence:32, _RxAck:32, RxClientId:16, _RxNumMessages:8,
       _RxMessages/binary>> = Packet,
     ClientKey = { RxClientId, RemoteIp },
     case ets:lookup(clients, ClientKey) of
@@ -44,6 +44,66 @@ parse(RemoteIp, Packet) ->
                             ack_packets = ClAckPackets + 1,
                             received_packets = ClReceivedPackets + 1 })
                     end
+            end
+    end.
+
+send(RemoteIp, ClientId) ->
+    ClientKey = { ClientId, RemoteIp },
+    case ets:lookup(clients, ClientKey) of
+        [] ->
+            erlang:error(badarg);
+        [ClientData = #client_data{
+            unrel_messages = ClUnrelMessages,
+            messages = ClMessages,
+            unacked_packet_exists = ClUnackedPacketExists,
+            unacked_packet = ClUnackedPacket,
+            outgoing_sequence = ClOutgoingSequence,
+            last_sequence_received = ClLastSequenceReceived,
+            sent_packets = ClSentPackets }] ->
+            ClUnrelMessagesSize = queue:len(ClUnrelMessages),
+            ClMessagesSize = queue:len(ClMessages),
+            if ClUnrelMessagesSize > 64 -> erlang:error(unrel_msg_overflow);
+               ClMessagesSize > 64 -> erlang:error(msg_overflow);
+               true -> ok
+            end,
+            ClUnrelMessagesNotEmpty = ClUnrelMessagesSize =/= 0,
+            ClMessagesNotEmpty = ClMessagesSize =/= 0,
+            if ClUnackedPacketExists or ClUnrelMessagesNotEmpty or
+               ClMessagesNotEmpty ->
+                if ClUnackedPacketExists ->
+                    FinalPacket = woof_packet:append_msg_queue(ClUnrelMessages,
+                            ClUnackedPacket),
+                    SerializedPacket = woof_packet:serialize(FinalPacket)
+                 ; ClMessagesNotEmpty ->
+                    NewPacket = #packet{ reliable = 1,
+                                         sequence = ClOutgoingSequence + 1,
+                                         ack = ClLastSequenceReceived },
+                    RelMsgsPacket = woof_packet:append_msg_queue(ClMessages,
+                            NewPacket),
+                    AllMsgsPacket = woof_packet:append_msg_queue(ClUnrelMessages,
+                            RelMsgsPacket),
+                    FinalNumMessages = ClMessagesSize + ClUnrelMessagesSize,
+                    FinalPacket = AllMsgsPacket#packet{ num_messages =
+                            FinalNumMessages },
+                    SerializedPacket = woof_packet:serialize(FinalPacket),
+                    ets:insert(clients, ClientData#client_data{
+                            outgoing_sequence = ClOutgoingSequence + 1,
+                            sent_packets = ClSentPackets + 1 })
+                 ; ClUnrelMessagesNotEmpty ->
+                    NewPacket = #packet{ reliable = 0,
+                                         sequence = ClOutgoingSequence + 1,
+                                         ack = ClLastSequenceReceived },
+                    AllMsgsPacket = woof_packet:append_msg_queue(ClUnrelMessages,
+                            NewPacket),
+                    FinalNumMessages = ClUnrelMessagesSize,
+                    FinalPacket = AllMsgsPacket#packet{ num_messages =
+                            FinalNumMessages },
+                    SerializedPacket = woof_packet:serialize(FinalPacket),
+                    ets:insert(clients, ClientData#client_data{
+                            outgoing_sequence = ClOutgoingSequence + 1,
+                            sent_packets = ClSentPackets + 1 })
+                end
+             ; true -> nothing_to_send
             end
     end.
 
