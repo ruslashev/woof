@@ -110,7 +110,9 @@ connection::connection(int port, screen *n_s)
   , _s(n_s)
   , _connected(false) {
   srand(time(nullptr));
-  _client_id = rand();
+  _client_id = 0;
+  while (_client_id == 0)
+    _client_id = rand();
   printf("this client id is %d\n", _client_id);
 }
 

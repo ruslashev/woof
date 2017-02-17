@@ -8,9 +8,9 @@ start_link() ->
 
 init([]) ->
     { ok, { { one_for_one, 5, 10 },
-            [{ woof_serv_listener,
-               { woof_serv_listener, start_link, [] },
-               permanent, 5 * 1000, worker, [woof_serv_listener] },
+            [{ woof_serv_socket,
+               { woof_serv_socket, start_link, [] },
+               permanent, 5 * 1000, worker, [woof_serv_socket] },
              { woof_serv_main_loop,
                { woof_serv_main_loop, start_link, [] },
                permanent, 5 * 1000, worker, [woof_serv_main_loop] },
