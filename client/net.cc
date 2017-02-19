@@ -215,13 +215,6 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
     ++c->_ack_packets;
   }
   c->print_stats();
-#ifdef WOOF_SERVER
-  std::string text = "))";
-  bytestream msg;
-  for (size_t i = 0; i < text.size(); ++i)
-    msg.write_uint8(text[i]);
-  c->send(msg);
-#endif
 }
 
 void connection::send(bytestream msg) {

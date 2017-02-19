@@ -4,9 +4,10 @@
 
 handle(RemoteIp, RemotePort, Packet) ->
     try
+        % parse/2 and update/3 should be merged
         ClientId = parse(RemoteIp, Packet),
         io:format("parsed packet: ~p~n", [Packet]),
-        update_and_send(RemoteIp, ClientId, RemotePort)
+        update(RemoteIp, ClientId, RemotePort)
     catch
         error:{ badmatch, _ } -> io:format("woof_serv_handler: malformed packet~n");
         _:E -> io:format("woof_serv_handler: unhandled exception:  ~p~n~p",
@@ -44,16 +45,18 @@ parse(RemoteIp, Packet) ->
                             unacked_packet_exists = false,
                             ack_packets = ClAckPackets + 1,
                             received_packets = ClReceivedPackets + 1 })
-                    end
+                    end,
+                    Msg = "))",
+                    woof_packet:send(ClientKey, Msg)
             end
     end,
     RxClientId.
 
-update_and_send(RemoteIp, ClientId, RemotePort) ->
+update(RemoteIp, ClientId, RemotePort) ->
     ClientKey = { ClientId, RemoteIp },
     case ets:lookup(clients, ClientKey) of
         [] ->
-            erlang:error(badarg);
+            throw(badarg);
         [ClientData = #client_data{
             unrel_messages = ClUnrelMessages,
             messages = ClMessages,
@@ -64,9 +67,9 @@ update_and_send(RemoteIp, ClientId, RemotePort) ->
             sent_packets = ClSentPackets }] ->
             ClUnrelMessagesSize = queue:len(ClUnrelMessages),
             ClMessagesSize = queue:len(ClMessages),
-            % Errors are temporary measure
-            if ClUnrelMessagesSize > 64 -> erlang:error(unrel_msg_overflow);
-               ClMessagesSize > 64 -> erlang:error(msg_overflow);
+            % Errors are a temporary measure
+            if ClUnrelMessagesSize > 64 -> throw(unrel_msg_overflow);
+               ClMessagesSize > 64 -> throw(msg_overflow);
                true -> ok
             end,
             ClUnrelMessagesNotEmpty = ClUnrelMessagesSize =/= 0,

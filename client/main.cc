@@ -88,13 +88,8 @@ void load(screen *s) {
 
   player.pos_x = player.pos_y = player.rotation = 0;
 
-#ifdef WOOF_SERVER
-  c = new connection(port_serv, s);
-  c->set_endpoint("127.0.0.1", port_client);
-#else
   c = new connection(port_client, s);
   c->set_endpoint("127.0.0.1", port_serv);
-#endif
 }
 
 void key_event(char key, bool down) {
@@ -137,9 +132,7 @@ void mousebutton_event_cb(int button, bool down) {
 void update(double dt, double t, screen *s) {
   c->update(dt, t);
 
-#ifndef WOOF_SERVER
   c->test();
-#endif
 
   sp->use_this_prog();
   glUniform1f(time_unif, t);
@@ -182,11 +175,7 @@ void cleanup() {
 
 int main() {
   try {
-#ifdef WOOF_SERVER
-    screen s("woof server", 800, 450);
-#else
     screen s("woof", 800, 450);
-#endif
 
     s.mainloop(load, key_event, mousemotion_event, mousebutton_event_cb, update
         , draw, cleanup);
