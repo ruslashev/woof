@@ -8,7 +8,7 @@ start_link() ->
 init(Parent) ->
     register(woof_serv_main_loop, self()),
     proc_lib:init_ack(Parent, { ok, self() }),
-    ets:new(clients, [set, public, named_table]),
+    ets:new(clients, [set, { keypos, 2 }, public, named_table]),
     loop().
 
 loop() ->

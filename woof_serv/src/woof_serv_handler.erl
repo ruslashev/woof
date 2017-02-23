@@ -6,12 +6,14 @@ handle(RemoteIp, RemotePort, Packet) ->
     try
         % parse/2 and update/3 should be merged
         ClientId = parse(RemoteIp, Packet),
-        io:format("parsed packet: ~p~n", [Packet]),
-        update(RemoteIp, ClientId, RemotePort)
+        io:format("parse~n"),
+        update(RemoteIp, ClientId, RemotePort),
+        io:format("update~n")
     catch
         error:{ badmatch, _ } -> io:format("woof_serv_handler: malformed packet~n");
-        _:E -> io:format("woof_serv_handler: unhandled exception:  ~p~n~p",
-                         [E, erlang:get_stacktrace()])
+        throw:badarg -> io:format("woof_serv_handler: badarg~n");
+        What:E -> io:format("woof_serv_handler: unhandled ~p: ~p~n~p",
+                         [What, E, erlang:get_stacktrace()])
     end.
 
 parse(RemoteIp, Packet) ->
@@ -20,7 +22,10 @@ parse(RemoteIp, Packet) ->
     ClientKey = { RxClientId, RemoteIp },
     case ets:lookup(clients, ClientKey) of
         [] ->
-            ets:insert(clients, #client_data{ client_key = ClientKey });
+            io:format("insert new record ~p~n", [#client_data{ client_key = ClientKey }]),
+            ets:insert(clients, #client_data{ client_key = ClientKey }),
+            N = ets:lookup(clients, ClientKey),
+            io:format("it is now: ~p~n", [N]);
         [ClientData = #client_data{
            unacked_packet = #packet{ sequence = ClUnackedPacketSequence },
            last_sequence_received = ClLastSequenceReceived,
@@ -46,7 +51,7 @@ parse(RemoteIp, Packet) ->
                             ack_packets = ClAckPackets + 1,
                             received_packets = ClReceivedPackets + 1 })
                     end,
-                    Msg = "))",
+                    Msg = <<"))">>,
                     woof_packet:send(ClientKey, Msg)
             end
     end,
@@ -67,7 +72,7 @@ update(RemoteIp, ClientId, RemotePort) ->
             sent_packets = ClSentPackets }] ->
             ClUnrelMessagesSize = queue:len(ClUnrelMessages),
             ClMessagesSize = queue:len(ClMessages),
-            % Errors are a temporary measure
+            % Throws are a temporary measure
             if ClUnrelMessagesSize > 64 -> throw(unrel_msg_overflow);
                ClMessagesSize > 64 -> throw(msg_overflow);
                true -> ok
@@ -104,8 +109,9 @@ update(RemoteIp, ClientId, RemotePort) ->
                     NewPacket = #packet{ reliable = 0,
                                          sequence = ClOutgoingSequence + 1,
                                          ack = ClLastSequenceReceived },
-                    AllMsgsPacket = woof_packet:append_msg_queue(ClUnrelMessages,
-                            NewPacket),
+                    AllMsgsPacket =
+                            woof_packet:append_msg_queue_to_packet(
+                                    ClUnrelMessages, NewPacket),
                     FinalNumMessages = ClUnrelMessagesSize,
                     FinalPacket = AllMsgsPacket#packet{ num_messages =
                             FinalNumMessages },

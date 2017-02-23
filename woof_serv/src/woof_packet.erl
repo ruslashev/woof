@@ -1,6 +1,6 @@
 %%% woof_packet: auxillary functions for working with packets and message queues
 -module(woof_packet).
--export([serialize/1, append_msg_queue/2, send/2, send_rel/2]).
+-export([serialize/1, append_msg_queue_to_packet/2, send/2, send_rel/2]).
 -include("woof_common.hrl").
 
 serialize(#packet{
@@ -10,22 +10,35 @@ serialize(#packet{
         client_id = ClientId,
         num_messages = NumMessages,
         serialized_messages = SerializedMessages }) ->
-    <<Reliable:8/big, Sequence:32/big, Ack:32/big, ClientId:16/big,
-      NumMessages:8/big, SerializedMessages/big>>.
+    case SerializedMessages of
+        undefined ->
+            <<Reliable:8/big, Sequence:32/big, Ack:32/big, ClientId:16/big,
+              NumMessages:8/big>>;
+        _ ->
+            <<Reliable:8/big, Sequence:32/big, Ack:32/big, ClientId:16/big,
+              NumMessages:8/big, SerializedMessages>>
+    end.
 
-append_msg_queue(MsgQueue, Packet = #packet{
+append_msg_queue_to_packet(MsgQueue, Packet = #packet{
         serialized_messages = SerializedMessages }) ->
     case queue:out(MsgQueue) of
         { empty, _ } ->
             Packet;
         { { value, HeadMsg }, NewQueue } ->
-            NewPacket = #packet{ serialized_messages =
-                    <<SerializedMessages/binary, HeadMsg/binary>> },
-            append_msg_queue(NewQueue, NewPacket)
+            case SerializedMessages of
+                undefined ->
+                    NewPacket = Packet#packet{ serialized_messages =
+                            <<HeadMsg/binary-big>> },
+                    append_msg_queue_to_packet(NewQueue, NewPacket);
+                _ ->
+                    NewPacket = Packet#packet{ serialized_messages =
+                            <<SerializedMessages/binary, HeadMsg/binary-big>> },
+                    append_msg_queue_to_packet(NewQueue, NewPacket)
+            end
     end.
 
 send(ClientKey, Message) ->
-    % update_element (?)
+    % ets:update_element (?)
     case ets:lookup(clients, ClientKey) of
         [] -> throw(badarg);
         [ClientData = #client_data{

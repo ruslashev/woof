@@ -11,12 +11,12 @@
 -define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
 
 -record(packet,
-        { reliable
-        , sequence
-        , ack
+        { reliable = undefined
+        , sequence = 0
+        , ack = 0
         , client_id = 0
         , num_messages = 0
-        , serialized_messages
+        , serialized_messages = undefined
         }).
 
 -record(client, { client_id, ip }).
@@ -26,9 +26,9 @@
         , unrel_messages = queue:new()
         , messages = queue:new()
         , unacked_packet_exists = false
-        , unacked_packet
-        , outgoing_sequence
-        , last_sequence_received
+        , unacked_packet = #packet{}
+        , outgoing_sequence = 0
+        , last_sequence_received = 0
         , sent_packets = 0
         , ack_packets = 0
         , received_packets = 0

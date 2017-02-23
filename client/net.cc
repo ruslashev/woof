@@ -150,7 +150,7 @@ void connection::update(double dt, double t) {
           _unrel_messages.pop();
         }
       _unacked_packet.serialize(serialized_packet);
-      puts("existing packet");
+      printf("existing packet; ");
     } else if (!_messages.empty()) {
       packet new_packet;
       new_packet.reliable = 1;
@@ -172,7 +172,7 @@ void connection::update(double dt, double t) {
           _unrel_messages.pop();
         }
       new_packet.serialize(serialized_packet);
-      puts("new packet");
+      printf("new packet; ");
     } else if (!_unrel_messages.empty()) {
       packet new_packet;
       new_packet.reliable = 0;
@@ -186,7 +186,7 @@ void connection::update(double dt, double t) {
         _unrel_messages.pop();
       }
       new_packet.serialize(serialized_packet);
-      puts("new packet with unrel msgs only");
+      printf("new packet with unrel msgs only; ");
     }
 
     _n.send(serialized_packet.data(), serialized_packet.size());
@@ -196,6 +196,7 @@ void connection::update(double dt, double t) {
 }
 
 void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
+  assertf(userdata != nullptr, "things that shouldn't happen for 300");
   connection *c = (connection*)userdata;
   // print_packet(buffer, bytes_rx, "receive");
   puts("received packet");
@@ -234,7 +235,7 @@ void connection::test() {
   bytestream msg;
   for (size_t i = 0; i < text.size(); ++i)
     msg.write_uint8(text[i]);
-  send_rel(msg);
+  send(msg);
 }
 
 void connection::print_stats() {

@@ -160,7 +160,7 @@ void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
 void draw(double alpha) {
   glClear(GL_COLOR_BUFFER_BIT);
 
-  draw_square(glm::vec2(400 + player.pos_x, 225 + player.pos_y)
+  draw_square(glm::vec2(100 + player.pos_x, 75 + player.pos_y)
       , glm::vec2(10, 10), player.rotation, glm::vec3(1, 0, 0));
 }
 
@@ -175,7 +175,8 @@ void cleanup() {
 
 int main() {
   try {
-    screen s("woof", 800, 450);
+    // screen s("woof", 800, 450);
+    screen s("woof", 200, 150);
 
     s.mainloop(load, key_event, mousemotion_event, mousebutton_event_cb, update
         , draw, cleanup);
