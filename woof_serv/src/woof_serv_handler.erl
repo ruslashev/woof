@@ -10,7 +10,8 @@ handle(RemoteIp, RemotePort, Packet) ->
         update(RemoteIp, ClientId, RemotePort),
         io:format("update~n")
     catch
-        error:{ badmatch, _ } -> io:format("woof_serv_handler: malformed packet~n");
+        error:{ badmatch, _ } ->
+            io:format("woof_serv_handler: malformed packet~n");
         throw:badarg -> io:format("woof_serv_handler: badarg~n");
         What:E -> io:format("woof_serv_handler: unhandled ~p: ~p~n~p",
                          [What, E, erlang:get_stacktrace()])
@@ -22,16 +23,15 @@ parse(RemoteIp, Packet) ->
     ClientKey = { RxClientId, RemoteIp },
     case ets:lookup(clients, ClientKey) of
         [] ->
-            io:format("insert new record ~p~n", [#client_data{ client_key = ClientKey }]),
             ets:insert(clients, #client_data{ client_key = ClientKey }),
-            N = ets:lookup(clients, ClientKey),
-            io:format("it is now: ~p~n", [N]);
+            parse(RemoteIp, Packet);
         [ClientData = #client_data{
            unacked_packet = #packet{ sequence = ClUnackedPacketSequence },
            last_sequence_received = ClLastSequenceReceived,
            ack_packets = ClAckPackets,
            received_packets = ClReceivedPackets }] ->
-            Status = if (RxSequence =:= 0) and (ClLastSequenceReceived =:= 0) -> ok;
+            Status = if (RxSequence =:= 0) and (ClLastSequenceReceived =:= 0) ->
+                            ok;
                         RxSequence =:= ClLastSequenceReceived + 1 -> ok;
                         RxSequence =/= ClLastSequenceReceived + 1 -> discard
                      end,
@@ -79,49 +79,48 @@ update(RemoteIp, ClientId, RemotePort) ->
             end,
             ClUnrelMessagesNotEmpty = ClUnrelMessagesSize =/= 0,
             ClMessagesNotEmpty = ClMessagesSize =/= 0,
-            if ClUnackedPacketExists or ClUnrelMessagesNotEmpty or
-               ClMessagesNotEmpty ->
-                % Clause actions should be refactored to separate functions
-                if ClUnackedPacketExists ->
-                    FinalPacket = woof_packet:append_msg_queue(ClUnrelMessages,
-                            ClUnackedPacket),
-                    SerializedPacket = woof_packet:serialize(FinalPacket),
-                    woof_serv_socket:send_binary(RemoteIp, RemotePort, SerializedPacket),
-                    ets:insert(clients, ClientData#client_data{
-                            sent_packets = ClSentPackets + 1 })
-                 ; ClMessagesNotEmpty ->
-                    NewPacket = #packet{ reliable = 1,
-                                         sequence = ClOutgoingSequence + 1,
-                                         ack = ClLastSequenceReceived },
-                    RelMsgsPacket = woof_packet:append_msg_queue(ClMessages,
-                            NewPacket),
-                    AllMsgsPacket = woof_packet:append_msg_queue(ClUnrelMessages,
-                            RelMsgsPacket),
-                    FinalNumMessages = ClMessagesSize + ClUnrelMessagesSize,
-                    FinalPacket = AllMsgsPacket#packet{ num_messages =
-                            FinalNumMessages },
-                    SerializedPacket = woof_packet:serialize(FinalPacket),
-                    woof_serv_socket:send_binary(RemoteIp, RemotePort, SerializedPacket),
-                    ets:insert(clients, ClientData#client_data{
-                            outgoing_sequence = ClOutgoingSequence + 1,
-                            sent_packets = ClSentPackets + 1 })
-                 ; ClUnrelMessagesNotEmpty ->
-                    NewPacket = #packet{ reliable = 0,
-                                         sequence = ClOutgoingSequence + 1,
-                                         ack = ClLastSequenceReceived },
-                    AllMsgsPacket =
-                            woof_packet:append_msg_queue_to_packet(
-                                    ClUnrelMessages, NewPacket),
-                    FinalNumMessages = ClUnrelMessagesSize,
-                    FinalPacket = AllMsgsPacket#packet{ num_messages =
-                            FinalNumMessages },
-                    SerializedPacket = woof_packet:serialize(FinalPacket),
-                    woof_serv_socket:send_binary(RemoteIp, RemotePort, SerializedPacket),
-                    ets:insert(clients, ClientData#client_data{
-                            outgoing_sequence = ClOutgoingSequence + 1,
-                            sent_packets = ClSentPackets + 1 })
-                end
-             ; true -> nothing_to_send
+            % Clause actions should be refactored to separate functions
+            if ClUnackedPacketExists ->
+                FinalPacket = woof_packet:append_msg_queue(ClUnrelMessages,
+                        ClUnackedPacket),
+                SerializedPacket = woof_packet:serialize(FinalPacket),
+                woof_serv_socket:send_binary(RemoteIp, RemotePort,
+                        SerializedPacket),
+                ets:insert(clients, ClientData#client_data{
+                        sent_packets = ClSentPackets + 1 })
+             ; ClMessagesNotEmpty ->
+                NewPacket = #packet{ reliable = 1,
+                                     sequence = ClOutgoingSequence + 1,
+                                     ack = ClLastSequenceReceived },
+                RelMsgsPacket = woof_packet:append_msg_queue(ClMessages,
+                        NewPacket),
+                AllMsgsPacket = woof_packet:append_msg_queue(ClUnrelMessages,
+                        RelMsgsPacket),
+                FinalNumMessages = ClMessagesSize + ClUnrelMessagesSize,
+                FinalPacket = AllMsgsPacket#packet{ num_messages =
+                        FinalNumMessages },
+                SerializedPacket = woof_packet:serialize(FinalPacket),
+                woof_serv_socket:send_binary(RemoteIp, RemotePort,
+                        SerializedPacket),
+                ets:insert(clients, ClientData#client_data{
+                        outgoing_sequence = ClOutgoingSequence + 1,
+                        sent_packets = ClSentPackets + 1 })
+             ; ClUnrelMessagesNotEmpty ->
+                NewPacket = #packet{ reliable = 0,
+                                     sequence = ClOutgoingSequence + 1,
+                                     ack = ClLastSequenceReceived },
+                AllMsgsPacket =
+                        woof_packet:append_msg_queue_to_packet(
+                                ClUnrelMessages, NewPacket),
+                FinalNumMessages = ClUnrelMessagesSize,
+                FinalPacket = AllMsgsPacket#packet{ num_messages =
+                        FinalNumMessages },
+                SerializedPacket = woof_packet:serialize(FinalPacket),
+                woof_serv_socket:send_binary(RemoteIp, RemotePort,
+                        SerializedPacket),
+                ets:insert(clients, ClientData#client_data{
+                        outgoing_sequence = ClOutgoingSequence + 1,
+                        sent_packets = ClSentPackets + 1 })
             end
     end.
 

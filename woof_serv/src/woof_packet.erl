@@ -16,7 +16,7 @@ serialize(#packet{
               NumMessages:8/big>>;
         _ ->
             <<Reliable:8/big, Sequence:32/big, Ack:32/big, ClientId:16/big,
-              NumMessages:8/big, SerializedMessages>>
+              NumMessages:8/big, SerializedMessages/binary-big>>
     end.
 
 append_msg_queue_to_packet(MsgQueue, Packet = #packet{
