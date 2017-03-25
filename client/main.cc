@@ -132,7 +132,11 @@ void mousebutton_event_cb(int button, bool down) {
 void update(double dt, double t, screen *s) {
   c->update(dt, t);
 
-  c->test();
+  static bool once = false;
+  if (!once) {// (!c->is_connected()) {
+    once = true;
+    c->connect();
+  }
 
   sp->use_this_prog();
   glUniform1f(time_unif, t);

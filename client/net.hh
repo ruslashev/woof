@@ -82,6 +82,7 @@ class connection {
   bool _connected;
 
   void ping();
+  void parse_packet(packet &p);
 public:
   connection(int port, screen *n_s);
   ~connection();
@@ -90,7 +91,8 @@ public:
   void send(bytestream msg);
   void send_rel(bytestream msg);
   void set_endpoint(std::string remote_ip, int remote_port);
-  void test();
+  void connect();
   void print_stats();
+  bool is_connected();
 };
 

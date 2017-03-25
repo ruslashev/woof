@@ -1,6 +1,7 @@
 %%% woof_packet: auxillary functions for working with packets and message queues
 -module(woof_packet).
--export([serialize/1, append_msg_queue_to_packet/2, send/2, send_rel/2]).
+-export([serialize/1, append_msg_queue_to_packet/2, send/2, send_rel/2,
+         connection_reply_msg/0]).
 -include("woof_common.hrl").
 
 serialize(#packet{
@@ -56,4 +57,8 @@ send_rel(ClientKey, Message) ->
             ets:insert(clients, ClientData#client_data{
                     messages = ClMessages2 })
     end.
+
+connection_reply_msg() ->
+    Type = ?SERVER_MESSAGE_TYPE_CONNECTION_REPLY,
+    <<Type:8>>.
 

@@ -83,6 +83,25 @@ void connection_req_msg::serialize(bytestream &b) {
 void connection::ping() {
 }
 
+void connection::parse_packet(packet &p) {
+  int num_messages = p.num_messages;
+  bytestream messages = p.serialized_messages;
+  printf("num_messages=%d\n", num_messages);
+  while (num_messages != 0) {
+    uint8_t type;
+    messages.read_uint8(type);
+    switch ((server_message_type)type) {
+      case server_message_type::CONNECTION_REPLY:
+        warning("we r conucted!!: %d", type);
+        _connected = true;
+        break;
+      default:
+        warning("uknown message type received: %d", type);
+    }
+    num_messages--;
+  }
+}
+
 connection::connection(int port, screen *n_s)
   : _io()
   , _n(_io, receive, this, port)
@@ -204,8 +223,10 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   packet p;
   bool success;
   p.deserialize(packet_bs, success);
-  if (!success)
-    die("malformed packet");
+  if (!success) {
+    warning("malformed packet");
+    return;
+  }
   ++c->_received_packets;
   if (!(p.sequence == 0 && c->_last_sequence_received == 0))
     if (p.sequence != c->_last_sequence_received + 1)
@@ -215,6 +236,7 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
     c->_unacked_packet_exists = false;
     ++c->_ack_packets;
   }
+  c->parse_packet(p);
   c->print_stats();
 }
 
@@ -230,16 +252,20 @@ void connection::set_endpoint(std::string remote_ip, int remote_port) {
   _n.set_endpoint(remote_ip, remote_port);
 }
 
-void connection::test() {
-  std::string text = "hi";
-  bytestream msg;
-  for (size_t i = 0; i < text.size(); ++i)
-    msg.write_uint8(text[i]);
-  send(msg);
+void connection::connect() {
+  // todo check if endpoint is set
+  connection_req_msg m;
+  bytestream b;
+  m.serialize(b);
+  send(b);
 }
 
 void connection::print_stats() {
   printf("stats: sent=%lu, ack=%lu, received=%lu\n", _sent_packets, _ack_packets
       , _received_packets);
+}
+
+bool connection::is_connected() {
+  return _connected;
 }
 

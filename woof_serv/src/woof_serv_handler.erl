@@ -5,10 +5,9 @@
 handle(RemoteIp, RemotePort, Packet) ->
     try
         % parse/2 and update/3 should be merged
-        ClientId = parse(RemoteIp, Packet),
+        ClientId = parse_packet(RemoteIp, Packet),
         io:format("parse~n"),
-        update(RemoteIp, ClientId, RemotePort),
-        io:format("update~n")
+        update(RemoteIp, ClientId, RemotePort)
     catch
         error:{ badmatch, _ } ->
             io:format("woof_serv_handler: malformed packet~n");
@@ -17,14 +16,14 @@ handle(RemoteIp, RemotePort, Packet) ->
                          [What, E, erlang:get_stacktrace()])
     end.
 
-parse(RemoteIp, Packet) ->
-    <<_RxReliable:8, RxSequence:32, _RxAck:32, RxClientId:16, _RxNumMessages:8,
-      _RxMessages/binary>> = Packet,
+parse_packet(RemoteIp, Packet) ->
+    <<_RxReliable:8, RxSequence:32, _RxAck:32, RxClientId:16, RxNumMessages:8,
+      RxMessages/binary>> = Packet,
     ClientKey = { RxClientId, RemoteIp },
     case ets:lookup(clients, ClientKey) of
         [] ->
             ets:insert(clients, #client_data{ client_key = ClientKey }),
-            parse(RemoteIp, Packet);
+            parse_packet(RemoteIp, Packet);
         [ClientData = #client_data{
            unacked_packet = #packet{ sequence = ClUnackedPacketSequence },
            last_sequence_received = ClLastSequenceReceived,
@@ -51,11 +50,32 @@ parse(RemoteIp, Packet) ->
                             ack_packets = ClAckPackets + 1,
                             received_packets = ClReceivedPackets + 1 })
                     end,
-                    Msg = <<"))">>,
-                    woof_packet:send(ClientKey, Msg)
+                    parse_messages(RemoteIp, RxClientId, RxNumMessages,
+                                   RxMessages)
             end
     end,
     RxClientId.
+
+parse_messages(_, _, 0, _) ->
+    ok;
+parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
+    ClientKey = { ClientId, RemoteIp },
+    <<Type:8, Rest/binary>> = Messages,
+    case Type of
+        ?MESSAGE_TYPE_CONNECTION_REQ ->
+            <<ProtocolVer:16, NewMessages/binary>> = Rest,
+            case ProtocolVer of
+                ?PROTOCOL_VERSION ->
+                    % todo: not erlangish
+                    Response = woof_packet:connection_reply_msg(),
+                    woof_packet:send(ClientKey, Response),
+                    parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
+                _ -> io:format("woof_serv_handler: wrong protocol version ~p~n",
+                             [ProtocolVer])
+            end;
+        _ ->
+            io:format("woof_serv_handler: unhandled message type ~p~n", [Type])
+    end.
 
 update(RemoteIp, ClientId, RemotePort) ->
     ClientKey = { ClientId, RemoteIp },
