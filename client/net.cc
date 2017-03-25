@@ -64,6 +64,7 @@ void packet::deserialize(bytestream &b, bool &success) {
   success &= b.read_uint32_net(ack);
   success &= b.read_uint16_net(client_id);
   success &= b.read_uint8(num_messages);
+  success &= b.read_rest(serialized_messages);
 }
 
 message::message(message_type n_type)
@@ -86,7 +87,6 @@ void connection::ping() {
 void connection::parse_packet(packet &p) {
   int num_messages = p.num_messages;
   bytestream messages = p.serialized_messages;
-  printf("num_messages=%d\n", num_messages);
   while (num_messages != 0) {
     uint8_t type;
     messages.read_uint8(type);
@@ -96,7 +96,7 @@ void connection::parse_packet(packet &p) {
         _connected = true;
         break;
       default:
-        warning("uknown message type received: %d", type);
+        warning("unknown message type received: %d", type);
     }
     num_messages--;
   }

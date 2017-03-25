@@ -68,6 +68,7 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
                 ?PROTOCOL_VERSION ->
                     % todo: not erlangish
                     Response = woof_packet:connection_reply_msg(),
+                    io:format("sendin ~p~n", [Response]),
                     woof_packet:send(ClientKey, Response),
                     parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
                 _ -> io:format("woof_serv_handler: wrong protocol version ~p~n",
