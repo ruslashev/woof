@@ -62,6 +62,12 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
     ClientKey = { ClientId, RemoteIp },
     <<Type:8, Rest/binary>> = Messages,
     case Type of
+        ?MESSAGE_TYPE_PING ->
+            <<TimeSent:32, NewMessages/binary>> = Rest,
+            Response = woof_packet:pong_msg(TimeSent),
+            io:format("sendin ~p~n", [Response]),
+            woof_packet:send(ClientKey, Response),
+            parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
         ?MESSAGE_TYPE_CONNECTION_REQ ->
             <<ProtocolVer:16, NewMessages/binary>> = Rest,
             case ProtocolVer of

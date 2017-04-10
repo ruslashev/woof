@@ -21,9 +21,10 @@ void net::start_receive() {
   _socket.async_receive_from(asio::buffer(_recv_buffer), remote_endpoint
       , [this, &remote_endpoint](const asio::error_code &e, size_t bytes_rx) {
         if (e == asio::error::message_size)
-          warning("received message longer than the buffer");
+          warning_ln("received message longer than the buffer");
         else if (e || bytes_rx == 0)
-          warning("something is wrong");
+          warning_ln("socket receive error: %d: %s", e.value()
+              , e.message().c_str());
         else {
           // printf("receive from %s:%d\n"
           //     , remote_endpoint.address().to_string().c_str()
@@ -81,10 +82,25 @@ void connection_req_msg::serialize(bytestream &b) {
   b.write_uint16_net(protocol_ver);
 }
 
-void connection::ping() {
+ping_msg::ping_msg(uint32_t n_time_sent)
+  : message(message_type::PING)
+  , time_sent(n_time_sent) {
 }
 
-void connection::parse_packet(packet &p) {
+void ping_msg::serialize(bytestream &b) {
+  b.write_uint8((uint8_t)type);
+  b.write_uint32_net(time_sent);
+}
+
+void connection::_ping() {
+  ping_msg m(_s->get_time_in_seconds() * 1000. + 0.5);
+  bytestream b;
+  m.serialize(b);
+  b.print("ping");
+  send(b);
+}
+
+void connection::_parse_packet(packet &p) {
   int num_messages = p.num_messages;
   bytestream messages = p.serialized_messages;
   while (num_messages != 0) {
@@ -126,6 +142,7 @@ connection::connection(int port, screen *n_s)
   , _ping_send_delay_ms(1500)
   , _ping_time_counter_ms(0)
   , _time_since_last_pong(0)
+  , _connection_stalling_warned(false)
   , _s(n_s)
   , _connected(false) {
   srand(time(nullptr));
@@ -141,18 +158,20 @@ connection::~connection() {
 }
 
 void connection::update(double dt, double t) {
-  /*
   if (_connected) {
     _time_since_last_pong += dt;
-    if (_time_since_last_pong > 5)
-      die("connection timeout");
+    if (_time_since_last_pong > 2.5 && !_connection_stalling_warned) {
+      warning("connection stalling");
+      _connection_stalling_warned = true;
+    } else if (_time_since_last_pong > 5)
+    {} // die("connection timeout");
     _ping_time_counter_ms += dt * 1000.;
     if (_ping_time_counter_ms > _ping_send_delay_ms) {
-      ping();
+      _ping();
       _ping_time_counter_ms -= _ping_send_delay_ms;
     }
   }
-  */
+
   if (_unrel_messages.size() > 64)
     die("unrel message buffer overflow");
   if (_messages.size() > 64)
@@ -232,11 +251,11 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
     if (p.sequence != c->_last_sequence_received + 1)
       return;
   c->_last_sequence_received = p.sequence;
-  if (c->_last_sequence_received == c->_unacked_packet.sequence) {
+  if (p.ack == c->_unacked_packet.sequence) {
     c->_unacked_packet_exists = false;
     ++c->_ack_packets;
   }
-  c->parse_packet(p);
+  c->_parse_packet(p);
   c->print_stats();
 }
 
@@ -257,7 +276,7 @@ void connection::connect() {
   connection_req_msg m;
   bytestream b;
   m.serialize(b);
-  send(b);
+  send_rel(b);
 }
 
 void connection::print_stats() {

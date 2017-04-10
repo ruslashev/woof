@@ -25,14 +25,15 @@ const uint16_t protocol_version = 1;
 
 enum class message_type : uint8_t {
   SPECIAL = 0,
-  ISALIVE = 1,
+  PING = 1,
   CONNECTION_REQ = 2
 };
 
 enum class server_message_type : uint8_t {
   SPECIAL = 0,
-  CONNECTION_REPLY = 1,
-  ERROR = 2
+  ERROR = 1,
+  PONG = 2,
+  CONNECTION_REPLY = 3
 };
 
 enum class server_error_type : uint8_t {
@@ -62,6 +63,12 @@ struct connection_req_msg : message {
   void serialize(bytestream &b) override;
 };
 
+struct ping_msg : message {
+  uint32_t time_sent;
+  ping_msg(uint32_t n_time_sent);
+  void serialize(bytestream &b) override;
+};
+
 class connection {
   asio::io_service _io;
   net _n;
@@ -76,13 +83,14 @@ class connection {
   uint16_t _client_id;
 
   double _ping_send_delay_ms, _ping_time_counter_ms, _time_since_last_pong;
+  bool _connection_stalling_warned;
 
   screen *_s; // for getting time
 
   bool _connected;
 
-  void ping();
-  void parse_packet(packet &p);
+  void _ping();
+  void _parse_packet(packet &p);
 public:
   connection(int port, screen *n_s);
   ~connection();
