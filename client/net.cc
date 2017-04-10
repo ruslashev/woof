@@ -92,7 +92,7 @@ void connection::parse_packet(packet &p) {
     messages.read_uint8(type);
     switch ((server_message_type)type) {
       case server_message_type::CONNECTION_REPLY:
-        warning("we r conucted!!: %d", type);
+        puts("connection established");
         _connected = true;
         break;
       default:

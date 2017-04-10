@@ -96,15 +96,11 @@ bool bytestream::read_uint32_net(uint32_t &value) {
 }
 
 bool bytestream::read_rest(bytestream &b) {
-  if (_b._rindex)
-  std::memcpy()
-  _data = memb._data() + b._rindex;
-  if (_rindex + 1 <= _data.size()) {
-    value = *((uint8_t*)(_data.data() + _rindex));
-    _rindex += 1;
-    return true;
-  } else
+  if (_rindex > _data.size() - 1)
     return false;
+  std::vector<uint8_t> subvec(_data.begin() + _rindex, _data.end());
+  b = bytestream(subvec.data(), subvec.size());
+  return true;
 }
 
 void bytestream::append(const bytestream &b) {

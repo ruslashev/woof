@@ -1,5 +1,5 @@
-%%% woof_serv_socket: process authoritative for receiving, delegating processing
-%%% and sending packets on a socket
+%%% woof_serv_socket: process that receives, delegates processing and sends
+%%% packets on a socket
 -module(woof_serv_socket).
 -behaviour(gen_server).
 -export([start_link/0, send_binary/3]).
