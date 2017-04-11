@@ -5,7 +5,7 @@
 handle(RemoteIp, RemotePort, Packet) ->
     try
         % parse/2 and update/3 should be merged
-        ClientId = parse_packet(RemoteIp, Packet),
+        ClientId = receive_packet(RemoteIp, Packet),
         io:format("parse~n"),
         update(RemoteIp, ClientId, RemotePort)
     catch
@@ -16,14 +16,14 @@ handle(RemoteIp, RemotePort, Packet) ->
                          [What, E, erlang:get_stacktrace()])
     end.
 
-parse_packet(RemoteIp, Packet) ->
-    <<_RxReliable:8, RxSequence:32, _RxAck:32, RxClientId:16, RxNumMessages:8,
+receive_packet(RemoteIp, Packet) ->
+    <<_RxReliable:8, RxSequence:32, RxAck:32, RxClientId:16, RxNumMessages:8,
       RxMessages/binary>> = Packet,
     ClientKey = { RxClientId, RemoteIp },
     case ets:lookup(clients, ClientKey) of
         [] ->
             ets:insert(clients, #client_data{ client_key = ClientKey }),
-            parse_packet(RemoteIp, Packet);
+            receive_packet(RemoteIp, Packet);
         [ClientData = #client_data{
            unacked_packet = #packet{ sequence = ClUnackedPacketSequence },
            last_sequence_received = ClLastSequenceReceived,
@@ -39,11 +39,11 @@ parse_packet(RemoteIp, Packet) ->
                     ets:insert(clients, ClientData#client_data{
                             received_packets = ClReceivedPackets + 1 });
                 ok ->
-                    if RxSequence =/= ClUnackedPacketSequence ->
+                    if RxAck =/= ClUnackedPacketSequence ->
                         ets:insert(clients, ClientData#client_data{
                             last_sequence_received = RxSequence,
                             received_packets = ClReceivedPackets + 1 });
-                       RxSequence =:= ClUnackedPacketSequence ->
+                       RxAck =:= ClUnackedPacketSequence ->
                         ets:insert(clients, ClientData#client_data{
                             last_sequence_received = RxSequence,
                             unacked_packet_exists = false,
@@ -64,8 +64,9 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
     case Type of
         ?MESSAGE_TYPE_PING ->
             <<TimeSent:32, NewMessages/binary>> = Rest,
+            io:format("Got time ~p~n", [TimeSent]),
             Response = woof_packet:pong_msg(TimeSent),
-            io:format("sendin ~p~n", [Response]),
+            io:format("sending ping ~p~n", [Response]),
             woof_packet:send(ClientKey, Response),
             parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
         ?MESSAGE_TYPE_CONNECTION_REQ ->
@@ -74,7 +75,7 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
                 ?PROTOCOL_VERSION ->
                     % todo: not erlangish
                     Response = woof_packet:connection_reply_msg(),
-                    io:format("sendin ~p~n", [Response]),
+                    io:format("sending conn reply ~p~n", [Response]),
                     woof_packet:send(ClientKey, Response),
                     parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
                 _ -> io:format("woof_serv_handler: wrong protocol version ~p~n",

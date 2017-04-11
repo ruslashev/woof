@@ -8,6 +8,7 @@ net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
   : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
   , receive_cb(n_receive_cb)
   , userdata(n_userdata) {
+  puts("net init");
   start_receive();
 } catch (const std::exception &e) {
   die("net init fail: %s", e.what());
@@ -96,17 +97,26 @@ void connection::_ping() {
   ping_msg m(_s->get_time_in_seconds() * 1000. + 0.5);
   bytestream b;
   m.serialize(b);
-  b.print("ping");
+  printf("m.time_sent=%d\n", m.time_sent);
   send(b);
 }
 
-void connection::_parse_packet(packet &p) {
+void connection::_pong() {
+  _time_since_last_pong = 0;
+  _connection_stalling_warned = false;
+  puts("got pong");
+}
+
+void connection::_parse_messages(packet &p) {
   int num_messages = p.num_messages;
   bytestream messages = p.serialized_messages;
   while (num_messages != 0) {
     uint8_t type;
     messages.read_uint8(type);
     switch ((server_message_type)type) {
+      case server_message_type::PONG:
+        _pong();
+        break;
       case server_message_type::CONNECTION_REPLY:
         puts("connection established");
         _connected = true;
@@ -123,7 +133,7 @@ connection::connection(int port, screen *n_s)
   , _n(_io, receive, this, port)
   , _net_io_thread([&] {
       puts("net thread start");
-      while (!_io.stopped()) {
+      // while (!_io.stopped()) {
         try {
           _io.run();
         } catch (const std::exception& e) {
@@ -131,7 +141,7 @@ connection::connection(int port, screen *n_s)
         } catch (...) {
           die("unknown network exception");
         }
-      }
+      // }
     })
   , _unacked_packet_exists(false)
   , _outgoing_sequence(0)
@@ -255,7 +265,7 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
     c->_unacked_packet_exists = false;
     ++c->_ack_packets;
   }
-  c->_parse_packet(p);
+  c->_parse_messages(p);
   c->print_stats();
 }
 

@@ -90,7 +90,8 @@ class connection {
   bool _connected;
 
   void _ping();
-  void _parse_packet(packet &p);
+  void _pong();
+  void _parse_messages(packet &p);
 public:
   connection(int port, screen *n_s);
   ~connection();
