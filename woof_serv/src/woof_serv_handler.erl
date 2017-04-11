@@ -66,7 +66,7 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
             <<TimeSent:32, NewMessages/binary>> = Rest,
             io:format("Got time ~p~n", [TimeSent]),
             Response = woof_packet:pong_msg(TimeSent),
-            io:format("sending ping ~p~n", [Response]),
+            io:format("sending pong ~p~n", [Response]),
             woof_packet:send(ClientKey, Response),
             parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
         ?MESSAGE_TYPE_CONNECTION_REQ ->
@@ -76,7 +76,7 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
                     % todo: not erlangish
                     Response = woof_packet:connection_reply_msg(),
                     io:format("sending conn reply ~p~n", [Response]),
-                    woof_packet:send(ClientKey, Response),
+                    woof_packet:send_rel(ClientKey, Response),
                     parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
                 _ -> io:format("woof_serv_handler: wrong protocol version ~p~n",
                              [ProtocolVer])
@@ -109,20 +109,24 @@ update(RemoteIp, ClientId, RemotePort) ->
             ClMessagesNotEmpty = ClMessagesSize =/= 0,
             % Clause actions should be refactored to separate functions
             if ClUnackedPacketExists ->
-                FinalPacket = woof_packet:append_msg_queue(ClUnrelMessages,
+                FinalPacket =
+                        woof_packet:append_msg_queue_to_packet(ClUnrelMessages,
                         ClUnackedPacket),
                 SerializedPacket = woof_packet:serialize(FinalPacket),
                 woof_serv_socket:send_binary(RemoteIp, RemotePort,
                         SerializedPacket),
                 ets:insert(clients, ClientData#client_data{
+                        unrel_messages = queue:new(),
                         sent_packets = ClSentPackets + 1 })
              ; ClMessagesNotEmpty ->
                 NewPacket = #packet{ reliable = 1,
                                      sequence = ClOutgoingSequence + 1,
                                      ack = ClLastSequenceReceived },
-                RelMsgsPacket = woof_packet:append_msg_queue(ClMessages,
+                RelMsgsPacket =
+                        woof_packet:append_msg_queue_to_packet(ClMessages,
                         NewPacket),
-                AllMsgsPacket = woof_packet:append_msg_queue(ClUnrelMessages,
+                AllMsgsPacket =
+                        woof_packet:append_msg_queue_to_packet(ClUnrelMessages,
                         RelMsgsPacket),
                 FinalNumMessages = ClMessagesSize + ClUnrelMessagesSize,
                 FinalPacket = AllMsgsPacket#packet{ num_messages =
@@ -131,14 +135,15 @@ update(RemoteIp, ClientId, RemotePort) ->
                 woof_serv_socket:send_binary(RemoteIp, RemotePort,
                         SerializedPacket),
                 ets:insert(clients, ClientData#client_data{
+                        messages = queue:new(),
+                        unrel_messages = queue:new(),
                         outgoing_sequence = ClOutgoingSequence + 1,
                         sent_packets = ClSentPackets + 1 })
              ; ClUnrelMessagesNotEmpty ->
                 NewPacket = #packet{ reliable = 0,
                                      sequence = ClOutgoingSequence + 1,
                                      ack = ClLastSequenceReceived },
-                AllMsgsPacket =
-                        woof_packet:append_msg_queue_to_packet(
+                AllMsgsPacket = woof_packet:append_msg_queue_to_packet(
                                 ClUnrelMessages, NewPacket),
                 FinalNumMessages = ClUnrelMessagesSize,
                 FinalPacket = AllMsgsPacket#packet{ num_messages =
@@ -147,6 +152,7 @@ update(RemoteIp, ClientId, RemotePort) ->
                 woof_serv_socket:send_binary(RemoteIp, RemotePort,
                         SerializedPacket),
                 ets:insert(clients, ClientData#client_data{
+                        unrel_messages = queue:new(),
                         outgoing_sequence = ClOutgoingSequence + 1,
                         sent_packets = ClSentPackets + 1 })
             end

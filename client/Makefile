@@ -8,10 +8,6 @@ default:
 	g++ main.cc screen.cc net.cc bits.cc -o woof $(flags) $(libraries) $(warnings)
 	./woof
 
-server:
-	g++ -DWOOF_SERVER main.cc screen.cc net.cc bits.cc -o woof_server $(flags) $(libraries) $(warnings)
-	./woof_server
-
 lines:
-	@wc -l *.* Makefile ../woof_serv/src/*.{erl,src}
+	@wc -l *.{cc,hh} Makefile ../woof_serv/src/*.{erl,hrl,src}
 

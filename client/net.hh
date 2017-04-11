@@ -8,14 +8,18 @@
 static const int port_serv = 2711, port_client = 2710, max_msg_len = 256;
 
 class net {
+  asio::io_service _io;
+  asio::io_service::work _io_work;
+  std::thread _io_thread;
   asio::ip::udp::socket _socket;
   asio::ip::udp::endpoint _remote_endpoint;
   uint8_t _recv_buffer[max_msg_len];
-  void (*receive_cb)(void*, uint8_t*, size_t);
-  void *userdata;
+  void (*_receive_cb)(void*, uint8_t*, size_t);
+  void *_userdata;
+  void _handle_receive(const asio::error_code &e, size_t bytes_rx);
 public:
-  net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
-      , void *n_userdata, int port);
+  net(void (*n_receive_cb)(void*, uint8_t*, size_t), void *n_userdata, int port);
+  ~net();
   void start_receive();
   void send(uint8_t *message, size_t len);
   void set_endpoint(std::string hostname, int port);
@@ -49,6 +53,7 @@ struct packet {
   bytestream serialized_messages;
   void serialize(bytestream &b);
   void deserialize(bytestream &b, bool &success);
+  void print();
 };
 
 struct message {
@@ -70,9 +75,7 @@ struct ping_msg : message {
 };
 
 class connection {
-  asio::io_service _io;
   net _n;
-  std::thread _net_io_thread;
 
   std::queue<bytestream> _unrel_messages, _messages;
   bool _unacked_packet_exists;
@@ -90,11 +93,10 @@ class connection {
   bool _connected;
 
   void _ping();
-  void _pong();
+  void _pong(uint32_t time_sent);
   void _parse_messages(packet &p);
 public:
   connection(int port, screen *n_s);
-  ~connection();
   void update(double dt, double t);
   static void receive(void *userdata, uint8_t *buffer, size_t bytes_rx);
   void send(bytestream msg);

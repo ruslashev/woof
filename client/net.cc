@@ -2,38 +2,58 @@
 #include "utils.hh"
 #include <limits> // std::numeric_limits
 
-net::net(asio::io_service &io, void (*n_receive_cb)(void*, uint8_t*, size_t)
-    , void *n_userdata, int port)
-  try
-  : _socket(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
-  , receive_cb(n_receive_cb)
-  , userdata(n_userdata) {
+net::net(void (*n_receive_cb)(void*, uint8_t*, size_t), void *n_userdata, int port)
+try
+  : _io()
+  , _io_work(_io)
+  , _io_thread([&] {
+      puts("net thread start");
+      start_receive();
+      while (!_io.stopped()) {
+        try {
+          _io.run();
+        } catch (const std::exception& e) {
+          die("network exception: %s", e.what());
+        } catch (...) {
+          die("unknown network exception");
+        }
+      }
+    })
+  , _socket(_io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
+  , _receive_cb(n_receive_cb)
+  , _userdata(n_userdata) {
   puts("net init");
-  start_receive();
 } catch (const std::exception &e) {
   die("net init fail: %s", e.what());
 } catch (...) {
   die("net init fail");
 }
 
+net::~net() {
+  _io.stop();
+  _io_thread.join();
+}
+
 void net::start_receive() {
-  // TODO: while (1) instead of recursion
   asio::ip::udp::endpoint remote_endpoint;
   _socket.async_receive_from(asio::buffer(_recv_buffer), remote_endpoint
       , [this, &remote_endpoint](const asio::error_code &e, size_t bytes_rx) {
-        if (e == asio::error::message_size)
-          warning_ln("received message longer than the buffer");
-        else if (e || bytes_rx == 0)
-          warning_ln("socket receive error: %d: %s", e.value()
-              , e.message().c_str());
-        else {
-          // printf("receive from %s:%d\n"
-          //     , remote_endpoint.address().to_string().c_str()
-          //     , remote_endpoint.port());
-          receive_cb(userdata, _recv_buffer, bytes_rx);
-        }
-        start_receive();
+        // printf("receive from %s:%d\n"
+        //     , remote_endpoint.address().to_string().c_str()
+        //     , remote_endpoint.port());
+        _handle_receive(e, bytes_rx);
       });
+}
+
+void net::_handle_receive(const asio::error_code &e, size_t bytes_rx) {
+  if (e == asio::error::message_size)
+    warning_ln("received message longer than the buffer");
+  else if (e)
+    warning_ln("socket receive error: %d: %s", e.value(), e.message().c_str());
+  else {
+    _receive_cb(_userdata, _recv_buffer, bytes_rx);
+  }
+  start_receive();
 }
 
 void net::send(uint8_t *message, size_t len) {
@@ -69,6 +89,15 @@ void packet::deserialize(bytestream &b, bool &success) {
   success &= b.read_rest(serialized_messages);
 }
 
+void packet::print() {
+  printf("reliable=%d\n", reliable);
+  printf("sequence=%d\n", sequence);
+  printf("ack=%d\n", ack);
+  printf("client_id=%d\n", client_id);
+  printf("num_messages=%d: ", num_messages);
+  serialized_messages.print();
+}
+
 message::message(message_type n_type)
   : type(n_type) {
 }
@@ -97,14 +126,14 @@ void connection::_ping() {
   ping_msg m(_s->get_time_in_seconds() * 1000. + 0.5);
   bytestream b;
   m.serialize(b);
-  printf("m.time_sent=%d\n", m.time_sent);
   send(b);
 }
 
-void connection::_pong() {
+void connection::_pong(uint32_t time_sent) {
   _time_since_last_pong = 0;
   _connection_stalling_warned = false;
-  puts("got pong");
+  double rtt = _s->get_time_in_seconds() * 1000. - (double)time_sent;
+  printf("ping rtt %.1f\n", rtt);
 }
 
 void connection::_parse_messages(packet &p) {
@@ -115,7 +144,9 @@ void connection::_parse_messages(packet &p) {
     messages.read_uint8(type);
     switch ((server_message_type)type) {
       case server_message_type::PONG:
-        _pong();
+        uint32_t time_sent;
+        messages.read_uint32_net(time_sent);
+        _pong(time_sent);
         break;
       case server_message_type::CONNECTION_REPLY:
         puts("connection established");
@@ -129,20 +160,7 @@ void connection::_parse_messages(packet &p) {
 }
 
 connection::connection(int port, screen *n_s)
-  : _io()
-  , _n(_io, receive, this, port)
-  , _net_io_thread([&] {
-      puts("net thread start");
-      // while (!_io.stopped()) {
-        try {
-          _io.run();
-        } catch (const std::exception& e) {
-          die("network exception: %s", e.what());
-        } catch (...) {
-          die("unknown network exception");
-        }
-      // }
-    })
+  : _n(receive, this, port)
   , _unacked_packet_exists(false)
   , _outgoing_sequence(0)
   , _last_sequence_received(0)
@@ -162,19 +180,14 @@ connection::connection(int port, screen *n_s)
   printf("this client id is %d\n", _client_id);
 }
 
-connection::~connection() {
-  _io.stop();
-  _net_io_thread.join();
-}
-
 void connection::update(double dt, double t) {
   if (_connected) {
     _time_since_last_pong += dt;
-    if (_time_since_last_pong > 2.5 && !_connection_stalling_warned) {
+    if (_time_since_last_pong > 3 && !_connection_stalling_warned) {
       warning("connection stalling");
       _connection_stalling_warned = true;
     } else if (_time_since_last_pong > 5)
-    {} // die("connection timeout");
+      {} // die("connection timeout");
     _ping_time_counter_ms += dt * 1000.;
     if (_ping_time_counter_ms > _ping_send_delay_ms) {
       _ping();

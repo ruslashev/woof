@@ -43,7 +43,7 @@ send(ClientKey, Message) ->
     case ets:lookup(clients, ClientKey) of
         [] -> throw(badarg);
         [ClientData = #client_data{
-           unrel_messages = ClUnrelMessages }] ->
+                unrel_messages = ClUnrelMessages }] ->
             ClUnrelMessages2 = queue:in(Message, ClUnrelMessages),
             ets:insert(clients, ClientData#client_data{
                     unrel_messages = ClUnrelMessages2 })
