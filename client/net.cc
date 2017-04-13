@@ -8,8 +8,8 @@ try
   , _io_work(_io)
   , _io_thread([&] {
       puts("net thread start");
-      start_receive();
-      while (!_io.stopped()) {
+      // start_receive();
+      // while (!_io.stopped()) {
         try {
           _io.run();
         } catch (const std::exception& e) {
@@ -17,12 +17,13 @@ try
         } catch (...) {
           die("unknown network exception");
         }
-      }
+      // }
     })
   , _socket(_io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
   , _receive_cb(n_receive_cb)
   , _userdata(n_userdata) {
   puts("net init");
+  start_receive();
 } catch (const std::exception &e) {
   die("net init fail: %s", e.what());
 } catch (...) {
