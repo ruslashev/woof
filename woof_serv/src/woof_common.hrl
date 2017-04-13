@@ -20,8 +20,6 @@
         , serialized_messages = undefined
         }).
 
--record(client, { client_id, ip }).
-
 -record(client_data,
         { client_key
         , unrel_messages = queue:new()
@@ -33,5 +31,13 @@
         , sent_packets = 0
         , ack_packets = 0
         , received_packets = 0
+        }).
+
+-record(player,
+        { client_id
+        , position_x = 0
+        , position_y = 0
+        , alive = true
+        , color = woof_utils:generate_random_color()
         }).
 

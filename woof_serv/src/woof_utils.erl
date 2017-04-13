@@ -1,7 +1,7 @@
-%%% woof_packet: auxillary functions for working with packets and message queues
--module(woof_packet).
+%%% woof_utils: auxillary functions for working with packets and message queues
+-module(woof_utils).
 -export([serialize/1, append_msg_queue_to_packet/2, send/2, send_rel/2,
-         connection_reply_msg/0, pong_msg/1]).
+         connection_reply_msg/0, pong_msg/1, generate_random_color/0]).
 -include("woof_common.hrl").
 
 serialize(#packet{
@@ -65,4 +65,30 @@ connection_reply_msg() ->
 pong_msg(TimeSent) ->
     Type = ?SERVER_MESSAGE_TYPE_PONG,
     <<Type:8, TimeSent:32>>.
+
+generate_random_color() ->
+    H = 59 + rand:uniform(241),
+    S = 45,
+    V = 87,
+    hsv_to_rgb(H, S, V).
+
+hsv_to_rgb(Hb, Sb, Vb) ->
+    H = Hb / 360.0,
+    S = Sb / 100.0,
+    V = 255.0 * Vb / 100.0,
+    I = trunc(H * 6),
+    F = H * 6 - I,
+    P = V * (1 - S),
+    Q = V * (1 - F * S),
+    T = V * (1 - (1 - F) * S),
+    { Rf, Gf, Bf } =
+        case I rem 6 of
+            0 -> { V, T, P };
+            1 -> { Q, V, P };
+            2 -> { P, V, T };
+            3 -> { P, Q, V };
+            4 -> { T, P, V };
+            5 -> { V, P, Q }
+        end,
+    { round(Rf), round(Gf), round(Bf) }.
 

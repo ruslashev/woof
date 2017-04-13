@@ -6,7 +6,6 @@ handle(RemoteIp, RemotePort, Packet) ->
     try
         % parse/2 and update/3 should be merged
         ClientId = receive_packet(RemoteIp, Packet),
-        io:format("parse~n"),
         update(RemoteIp, ClientId, RemotePort)
     catch
         error:{ badmatch, _ } ->
@@ -64,19 +63,17 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
     case Type of
         ?MESSAGE_TYPE_PING ->
             <<TimeSent:32, NewMessages/binary>> = Rest,
-            io:format("Got time ~p~n", [TimeSent]),
-            Response = woof_packet:pong_msg(TimeSent),
-            io:format("sending pong ~p~n", [Response]),
-            woof_packet:send(ClientKey, Response),
+            Response = woof_utils:pong_msg(TimeSent),
+            woof_utils:send(ClientKey, Response),
             parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
         ?MESSAGE_TYPE_CONNECTION_REQ ->
             <<ProtocolVer:16, NewMessages/binary>> = Rest,
             case ProtocolVer of
                 ?PROTOCOL_VERSION ->
                     % todo: not erlangish
-                    Response = woof_packet:connection_reply_msg(),
-                    io:format("sending conn reply ~p~n", [Response]),
-                    woof_packet:send_rel(ClientKey, Response),
+                    Response = woof_utils:connection_reply_msg(),
+                    woof_utils:send_rel(ClientKey, Response),
+                    woof_serv_main_loop ! { new_client, ClientId },
                     parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
                 _ -> io:format("woof_serv_handler: wrong protocol version ~p~n",
                              [ProtocolVer])
@@ -110,9 +107,9 @@ update(RemoteIp, ClientId, RemotePort) ->
             % Clause actions should be refactored to separate functions
             if ClUnackedPacketExists ->
                 FinalPacket =
-                        woof_packet:append_msg_queue_to_packet(ClUnrelMessages,
+                        woof_utils:append_msg_queue_to_packet(ClUnrelMessages,
                         ClUnackedPacket),
-                SerializedPacket = woof_packet:serialize(FinalPacket),
+                SerializedPacket = woof_utils:serialize(FinalPacket),
                 woof_serv_socket:send_binary(RemoteIp, RemotePort,
                         SerializedPacket),
                 ets:insert(clients, ClientData#client_data{
@@ -123,15 +120,15 @@ update(RemoteIp, ClientId, RemotePort) ->
                                      sequence = ClOutgoingSequence + 1,
                                      ack = ClLastSequenceReceived },
                 RelMsgsPacket =
-                        woof_packet:append_msg_queue_to_packet(ClMessages,
+                        woof_utils:append_msg_queue_to_packet(ClMessages,
                         NewPacket),
                 AllMsgsPacket =
-                        woof_packet:append_msg_queue_to_packet(ClUnrelMessages,
+                        woof_utils:append_msg_queue_to_packet(ClUnrelMessages,
                         RelMsgsPacket),
                 FinalNumMessages = ClMessagesSize + ClUnrelMessagesSize,
                 FinalPacket = AllMsgsPacket#packet{ num_messages =
                         FinalNumMessages },
-                SerializedPacket = woof_packet:serialize(FinalPacket),
+                SerializedPacket = woof_utils:serialize(FinalPacket),
                 woof_serv_socket:send_binary(RemoteIp, RemotePort,
                         SerializedPacket),
                 ets:insert(clients, ClientData#client_data{
@@ -143,12 +140,12 @@ update(RemoteIp, ClientId, RemotePort) ->
                 NewPacket = #packet{ reliable = 0,
                                      sequence = ClOutgoingSequence + 1,
                                      ack = ClLastSequenceReceived },
-                AllMsgsPacket = woof_packet:append_msg_queue_to_packet(
+                AllMsgsPacket = woof_utils:append_msg_queue_to_packet(
                                 ClUnrelMessages, NewPacket),
                 FinalNumMessages = ClUnrelMessagesSize,
                 FinalPacket = AllMsgsPacket#packet{ num_messages =
                         FinalNumMessages },
-                SerializedPacket = woof_packet:serialize(FinalPacket),
+                SerializedPacket = woof_utils:serialize(FinalPacket),
                 woof_serv_socket:send_binary(RemoteIp, RemotePort,
                         SerializedPacket),
                 ets:insert(clients, ClientData#client_data{
