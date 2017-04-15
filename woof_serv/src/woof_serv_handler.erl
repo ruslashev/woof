@@ -151,6 +151,7 @@ send_packets(RemoteIp, ClientId, RemotePort) ->
                         unrel_messages = queue:new(),
                         outgoing_sequence = ClOutgoingSequence + 1,
                         sent_packets = ClSentPackets + 1 })
+             ; true -> ok
             end
     end.
 

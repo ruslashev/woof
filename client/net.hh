@@ -37,7 +37,8 @@ enum class server_message_type : uint8_t {
   SPECIAL = 0,
   ERROR = 1,
   PONG = 2,
-  CONNECTION_REPLY = 3
+  CONNECTION_REPLY = 3,
+  UPDATE = 4
 };
 
 enum class server_error_type : uint8_t {

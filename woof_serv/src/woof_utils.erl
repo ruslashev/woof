@@ -1,7 +1,8 @@
 %%% woof_utils: auxillary functions for working with packets and message queues
 -module(woof_utils).
 -export([serialize/1, append_msg_queue_to_packet/2, send/2, send_rel/2,
-         connection_reply_msg/0, pong_msg/1, generate_random_color/0]).
+         connection_reply_msg/0, pong_msg/1, update_msg/0,
+         generate_random_color/0]).
 -include("woof_common.hrl").
 
 serialize(#packet{
@@ -65,6 +66,14 @@ connection_reply_msg() ->
 pong_msg(TimeSent) ->
     Type = ?SERVER_MESSAGE_TYPE_PONG,
     <<Type:8, TimeSent:32>>.
+
+update_msg() ->
+    case ets:tab2list(players) of
+        [] -> discard;
+        F -> io:format("Friends: ~p~n", [F])
+    end,
+    Type = ?SERVER_MESSAGE_TYPE_UPDATE,
+    <<Type:8>>.
 
 generate_random_color() ->
     H = 59 + rand:uniform(241),

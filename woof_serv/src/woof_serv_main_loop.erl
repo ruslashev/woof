@@ -22,7 +22,10 @@ loop() ->
             end;
         Unknown ->
             io:format("woof_serv_main_loop: unknown msg ~p~n", [Unknown])
-    after 10 ->
+    after 50 ->
+        _M = woof_utils:update_msg(),
         loop()
     end.
+
+% send_udpate() ->
 
