@@ -8,7 +8,6 @@ try
   , _io_work(_io)
   , _io_thread([&] {
       puts("net thread start");
-      // start_receive();
       // while (!_io.stopped()) {
         try {
           _io.run();
@@ -62,8 +61,6 @@ void net::send(uint8_t *message, size_t len) {
       , [this](const asio::error_code &e, size_t bytes_tx) {
         if (e)
           printf("net::send error: %s\n", e.message().c_str());
-        // else
-        //   puts("ok, sent");
       });
 }
 
@@ -137,70 +134,7 @@ void connection::_pong(uint32_t time_sent) {
   printf("ping rtt %.1f\n", rtt);
 }
 
-void connection::_parse_messages(packet &p) {
-  int num_messages = p.num_messages;
-  bytestream messages = p.serialized_messages;
-  while (num_messages != 0) {
-    uint8_t type;
-    messages.read_uint8(type);
-    switch ((server_message_type)type) {
-      case server_message_type::PONG:
-        uint32_t time_sent;
-        messages.read_uint32_net(time_sent);
-        _pong(time_sent);
-        break;
-      case server_message_type::CONNECTION_REPLY:
-        puts("connection established");
-        _connected = true;
-        break;
-      default:
-        warning("unknown message type received: %d", type);
-    }
-    num_messages--;
-  }
-}
-
-connection::connection(int port, screen *n_s)
-  : _n(receive, this, port)
-  , _unacked_packet_exists(false)
-  , _outgoing_sequence(0)
-  , _last_sequence_received(0)
-  , _sent_packets(0)
-  , _ack_packets(0)
-  , _received_packets(0)
-  , _ping_send_delay_ms(1500)
-  , _ping_time_counter_ms(0)
-  , _time_since_last_pong(0)
-  , _connection_stalling_warned(false)
-  , _s(n_s)
-  , _connected(false) {
-  srand(time(nullptr));
-  _client_id = 0;
-  while (_client_id == 0)
-    _client_id = rand();
-  printf("this client id is %d\n", _client_id);
-}
-
-void connection::update(double dt, double t) {
-  if (_connected) {
-    _time_since_last_pong += dt;
-    if (_time_since_last_pong > 3 && !_connection_stalling_warned) {
-      warning("connection stalling");
-      _connection_stalling_warned = true;
-    } else if (_time_since_last_pong > 5)
-      {} // die("connection timeout");
-    _ping_time_counter_ms += dt * 1000.;
-    if (_ping_time_counter_ms > _ping_send_delay_ms) {
-      _ping();
-      _ping_time_counter_ms -= _ping_send_delay_ms;
-    }
-  }
-
-  if (_unrel_messages.size() > 64)
-    die("unrel message buffer overflow");
-  if (_messages.size() > 64)
-    die("message buffer overflow");
-
+void connection::_send_packets() {
   if (_unacked_packet_exists || !_unrel_messages.empty() || !_messages.empty()) {
     bytestream serialized_packet;
 
@@ -254,6 +188,85 @@ void connection::update(double dt, double t) {
     _n.send(serialized_packet.data(), serialized_packet.size());
     ++_sent_packets;
     print_stats();
+  }
+}
+
+void connection::_parse_messages(packet &p) {
+  int num_messages = p.num_messages;
+  bytestream messages = p.serialized_messages;
+  while (num_messages != 0) {
+    uint8_t type;
+    messages.read_uint8(type);
+    switch ((server_message_type)type) {
+      case server_message_type::PONG:
+        uint32_t time_sent;
+        messages.read_uint32_net(time_sent);
+        _pong(time_sent);
+        break;
+      case server_message_type::CONNECTION_REPLY:
+        puts("connection established");
+        _connected = true;
+        break;
+      default:
+        warning("unknown message type received: %d", type);
+    }
+    num_messages--;
+  }
+}
+
+connection::connection(int port, screen *n_s)
+  : _n(receive, this, port)
+  , _unacked_packet_exists(false)
+  , _outgoing_sequence(0)
+  , _last_sequence_received(0)
+  , _sent_packets(0)
+  , _ack_packets(0)
+  , _received_packets(0)
+  , _resend_delay_not_connected(500)
+  , _resend_delay_connected(50)
+  , _resend_delay_ms(_resend_delay_not_connected)
+  , _resend_time_counter_ms(0)
+  , _ping_send_delay_ms(1500)
+  , _ping_time_counter_ms(0)
+  , _time_since_last_pong(0)
+  , _connection_stalling_warned(false)
+  , _s(n_s)
+  , _connected(false) {
+  srand(time(nullptr));
+  _client_id = 0;
+  while (_client_id == 0)
+    _client_id = rand();
+  printf("this client id is %d\n", _client_id);
+}
+
+void connection::update(double dt, double t) {
+  if (_connected) {
+    _time_since_last_pong += dt;
+    if (_time_since_last_pong > 3 && !_connection_stalling_warned) {
+      warning("connection stalling");
+      _connection_stalling_warned = true;
+    } else if (_time_since_last_pong > 5)
+      {} // die("connection timeout");
+    _ping_time_counter_ms += dt * 1000.;
+    if (_ping_time_counter_ms >= _ping_send_delay_ms) {
+      _ping_time_counter_ms -= _ping_send_delay_ms;
+      _ping();
+    }
+  }
+
+  if (_unrel_messages.size() > 64)
+    die("unrel message buffer overflow");
+  if (_messages.size() > 64)
+    die("message buffer overflow");
+
+  _resend_delay_ms = _connected ? _resend_delay_connected
+    : _resend_delay_not_connected;
+
+  _resend_time_counter_ms += dt * 1000.;
+
+  if (_resend_time_counter_ms >= _resend_delay_ms) {
+    _resend_time_counter_ms -= _resend_delay_ms;
+    _send_packets();
   }
 }
 

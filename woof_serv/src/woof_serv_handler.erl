@@ -4,9 +4,8 @@
 
 handle(RemoteIp, RemotePort, Packet) ->
     try
-        % parse/2 and update/3 should be merged
         ClientId = receive_packet(RemoteIp, Packet),
-        update(RemoteIp, ClientId, RemotePort)
+        send_packets(RemoteIp, ClientId, RemotePort)
     catch
         error:{ badmatch, _ } ->
             io:format("woof_serv_handler: malformed packet~n");
@@ -82,7 +81,7 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
             io:format("woof_serv_handler: unhandled message type ~p~n", [Type])
     end.
 
-update(RemoteIp, ClientId, RemotePort) ->
+send_packets(RemoteIp, ClientId, RemotePort) ->
     ClientKey = { ClientId, RemoteIp },
     case ets:lookup(clients, ClientKey) of
         [] ->

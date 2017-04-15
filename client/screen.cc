@@ -48,7 +48,7 @@ void screen::mainloop(void (*load_cb)(screen*)
     , void (*cleanup_cb)(void)) {
   load_cb(this);
 
-  const int ticks_per_second = 2, max_update_ticks = 5;
+  const int ticks_per_second = 20, max_update_ticks = 5;
   // everywhere all time is measured in seconds unless otherwise stated
   double t = 0, dt = 1. / ticks_per_second;
   double current_time = get_time_in_seconds(), accumulator = 0;

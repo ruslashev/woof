@@ -85,6 +85,9 @@ class connection {
 
   uint16_t _client_id;
 
+  double _resend_delay_not_connected, _resend_delay_connected
+    , _resend_delay_ms, _resend_time_counter_ms;
+
   double _ping_send_delay_ms, _ping_time_counter_ms, _time_since_last_pong;
   bool _connection_stalling_warned;
 
@@ -94,6 +97,7 @@ class connection {
 
   void _ping();
   void _pong(uint32_t time_sent);
+  void _send_packets();
   void _parse_messages(packet &p);
 public:
   connection(int port, screen *n_s);
