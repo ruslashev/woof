@@ -40,7 +40,6 @@ append_msg_queue_to_packet(MsgQueue, Packet = #packet{
     end.
 
 send(ClientKey, Message) ->
-    % ets:update_element (?)
     case ets:lookup(clients, ClientKey) of
         [] -> throw(badarg);
         [ClientData = #client_data{
@@ -68,10 +67,6 @@ pong_msg(TimeSent) ->
     <<Type:8, TimeSent:32>>.
 
 update_msg() ->
-    case ets:tab2list(players) of
-        [] -> discard;
-        F -> io:format("Friends: ~p~n", [F])
-    end,
     Type = ?SERVER_MESSAGE_TYPE_UPDATE,
     <<Type:8>>.
 

@@ -12,6 +12,8 @@
 
 -define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
 
+-define(SERVER_UPDATE_SEND_DELAY_MS, 50).
+
 -record(packet,
         { reliable = undefined
         , sequence = 0
