@@ -37,8 +37,8 @@
         , ack_packets = 0
         , received_packets = 0
         , time_since_last_ping = 0
-        , position_x = 0
-        , position_y = 0
+        , position_x = rand:uniform(100)
+        , position_y = rand:uniform(100)
         , alive = true
         , color = woof_utils:generate_random_color()
         }).

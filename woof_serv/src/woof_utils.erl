@@ -68,6 +68,7 @@ pong_msg(TimeSent) ->
 
 update_msg(Clients) ->
     Type = ?SERVER_MESSAGE_TYPE_UPDATE,
+    NumClients = length(Clients),
     lists:foldl(fun(#client_data{
                         position_x = PositionX,
                         position_y = PositionY,
@@ -79,7 +80,7 @@ update_msg(Clients) ->
                                end,
                     <<Acc/binary, PositionX:16, PositionY:16, AliveInt:8,
                       ColorR:8, ColorG:8, ColorB:8>>
-                end, <<Type:8>>, Clients).
+                end, <<Type:8, NumClients:8>>, Clients).
 
 generate_random_color() ->
     H = 59 + rand:uniform(241),

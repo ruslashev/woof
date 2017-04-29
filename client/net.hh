@@ -4,6 +4,7 @@
 #include <asio.hpp>
 #include <queue>
 #include <thread>
+#include <vector>
 
 static const int port_serv = 2711, port_client = 2710, max_msg_len = 256;
 
@@ -75,6 +76,11 @@ struct ping_msg : message {
   void serialize(bytestream &b) override;
 };
 
+struct player {
+  uint16_t position_x, position_y;
+  uint8_t alive, color_r, color_g, color_b;
+};
+
 class connection {
   net _n;
 
@@ -110,5 +116,9 @@ public:
   void connect();
   void print_stats();
   bool is_connected();
+
+  // shouldn't be here, but implementing players' data passing other way is a lot
+  // of unnecessary work (for not enough time)
+  std::vector<player> players;
 };
 

@@ -76,17 +76,10 @@ void graphics_load(screen *s) {
   sp->dont_use_this_prog();
 }
 
-static struct player_info {
-  float pos_x, pos_y;
-  float rotation; // degrees
-} player;
-
 static connection *c;
 
 void load(screen *s) {
   graphics_load(s);
-
-  player.pos_x = player.pos_y = player.rotation = 0;
 
   c = new connection(port_client, s);
   c->set_endpoint("127.0.0.1", port_serv);
@@ -164,8 +157,13 @@ void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
 void draw(double alpha) {
   glClear(GL_COLOR_BUFFER_BIT);
 
-  draw_square(glm::vec2(100 + player.pos_x, 75 + player.pos_y)
-      , glm::vec2(10, 10), player.rotation, glm::vec3(1, 0, 0));
+  for (size_t i = 0; i < c->players.size(); ++i) {
+    player p = c->players[i];
+    glm::vec3 color = glm::vec3(p.color_r / 255.f, p.color_g / 255.f
+        , p.color_b / 255.f);
+    draw_square(glm::vec2(p.position_x, p.position_y)
+        , glm::vec2(10, 10), 0, color);
+  }
 }
 
 void cleanup() {

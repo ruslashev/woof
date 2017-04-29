@@ -15,9 +15,9 @@ init([]) ->
 
 handle_info(tick, Timer) ->
     erlang:cancel_timer(Timer),
+    timeout_clients(),
     Clients = ets:tab2list(clients),
     if Clients =/= [] ->
-        timeout_clients(),
         send_update_to_clients(Clients, woof_utils:update_msg(Clients));
        true -> ok
     end,
@@ -46,7 +46,7 @@ send_update_to_clients([], _) ->
 send_update_to_clients([#client_data{ client_id = ClientId } | TailClients],
                        UpdateMsg) ->
     io:format("Sending ~p to ~p~n", [UpdateMsg, ClientId]),
-    % woof_utils:send(ClientId, UpdateMsg),
+    woof_utils:send(ClientId, UpdateMsg),
     send_update_to_clients(TailClients, UpdateMsg).
 
 timeout_clients() ->

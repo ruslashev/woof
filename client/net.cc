@@ -207,6 +207,21 @@ void connection::_parse_messages(packet &p) {
         puts("connection established");
         _connected = true;
         break;
+      case server_message_type::UPDATE:
+        players.clear();
+        uint8_t num_clients;
+        messages.read_uint8(num_clients);
+        for (int i = 1; i <= num_clients; ++i) {
+          player ply;
+          messages.read_uint16_net(ply.position_x);
+          messages.read_uint16_net(ply.position_y);
+          messages.read_uint8(ply.alive);
+          messages.read_uint8(ply.color_r);
+          messages.read_uint8(ply.color_g);
+          messages.read_uint8(ply.color_b);
+          players.push_back(ply);
+        }
+        break;
       default:
         warning("unknown message type received: %d", type);
     }
