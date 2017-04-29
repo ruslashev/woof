@@ -12,7 +12,7 @@
 
 -define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
 
--define(SERVER_UPDATE_SEND_DELAY_MS, 50).
+-define(SERVER_UPDATE_SEND_DELAY_MS, 500).
 
 -record(packet,
         { reliable = undefined
@@ -24,7 +24,8 @@
         }).
 
 -record(client_data,
-        { client_key
+        { client_id
+        , remote_ip
         , unrel_messages = queue:new()
         , messages = queue:new()
         , unacked_packet_exists = false
@@ -36,6 +37,7 @@
         , received_packets = 0
         }).
 
+% TODO: drop
 -record(player,
         { client_id
         , position_x = 0

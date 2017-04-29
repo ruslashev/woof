@@ -17,10 +17,11 @@ handle(RemoteIp, RemotePort, Packet) ->
 receive_packet(RemoteIp, Packet) ->
     <<_RxReliable:8, RxSequence:32, RxAck:32, RxClientId:16, RxNumMessages:8,
       RxMessages/binary>> = Packet,
-    ClientKey = { RxClientId, RemoteIp },
-    case ets:lookup(clients, ClientKey) of
+    case ets:lookup(clients, RxClientId) of
         [] ->
-            ets:insert(clients, #client_data{ client_key = ClientKey }),
+            ets:insert(clients, #client_data{
+                    client_id = RxClientId,
+                    remote_ip = RemoteIp }),
             receive_packet(RemoteIp, Packet);
         [ClientData = #client_data{
            unacked_packet = #packet{ sequence = ClUnackedPacketSequence },
@@ -57,22 +58,24 @@ receive_packet(RemoteIp, Packet) ->
 parse_messages(_, _, 0, _) ->
     ok;
 parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
-    ClientKey = { ClientId, RemoteIp },
     <<Type:8, Rest/binary>> = Messages,
     case Type of
         ?MESSAGE_TYPE_PING ->
             <<TimeSent:32, NewMessages/binary>> = Rest,
             Response = woof_utils:pong_msg(TimeSent),
-            woof_utils:send(ClientKey, Response),
+            woof_utils:send(ClientId, Response),
             parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
         ?MESSAGE_TYPE_CONNECTION_REQ ->
+            % TODO: assert client_id is unique
             <<ProtocolVer:16, NewMessages/binary>> = Rest,
             case ProtocolVer of
                 ?PROTOCOL_VERSION ->
-                    % todo: not erlangish
+                    % TODO: not erlangish
                     Response = woof_utils:connection_reply_msg(),
-                    woof_utils:send_rel(ClientKey, Response),
+                    woof_utils:send_rel(ClientId, Response),
                     woof_serv_main_loop ! { new_client, ClientId },
+                    % TODO
+                    % woof_serv_main_loop:new_client(ClientId),
                     parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
                 _ -> io:format("woof_serv_handler: wrong protocol version ~p~n",
                              [ProtocolVer])
@@ -82,8 +85,7 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
     end.
 
 send_packets(RemoteIp, ClientId, RemotePort) ->
-    ClientKey = { ClientId, RemoteIp },
-    case ets:lookup(clients, ClientKey) of
+    case ets:lookup(clients, ClientId) of
         [] ->
             throw(badarg);
         [ClientData = #client_data{
