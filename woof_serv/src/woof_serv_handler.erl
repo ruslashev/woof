@@ -64,6 +64,7 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
             <<TimeSent:32, NewMessages/binary>> = Rest,
             Response = woof_utils:pong_msg(TimeSent),
             woof_utils:send(ClientId, Response),
+            ets:update_element(clients, ClientId, { 13, 0 }), % time_since_last_ping
             parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
         ?MESSAGE_TYPE_CONNECTION_REQ ->
             % TODO: assert client_id is unique
@@ -73,9 +74,6 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
                     % TODO: not erlangish
                     Response = woof_utils:connection_reply_msg(),
                     woof_utils:send_rel(ClientId, Response),
-                    woof_serv_main_loop ! { new_client, ClientId },
-                    % TODO
-                    % woof_serv_main_loop:new_client(ClientId),
                     parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
                 _ -> io:format("woof_serv_handler: wrong protocol version ~p~n",
                              [ProtocolVer])

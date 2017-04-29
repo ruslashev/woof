@@ -66,19 +66,20 @@ pong_msg(TimeSent) ->
     Type = ?SERVER_MESSAGE_TYPE_PONG,
     <<Type:8, TimeSent:32>>.
 
-update_msg(Players) ->
+update_msg(Clients) ->
     Type = ?SERVER_MESSAGE_TYPE_UPDATE,
-    lists:foldl(fun(#player{ position_x = PositionX,
-                             position_y = PositionY,
-                             alive = Alive,
-                             color = { ColorR, ColorG, ColorB } }, Acc) ->
+    lists:foldl(fun(#client_data{
+                        position_x = PositionX,
+                        position_y = PositionY,
+                        alive = Alive,
+                        color = { ColorR, ColorG, ColorB } }, Acc) ->
                     AliveInt = case Alive of
                                    true -> 1;
                                    false -> 0
                                end,
                     <<Acc/binary, PositionX:16, PositionY:16, AliveInt:8,
                       ColorR:8, ColorG:8, ColorB:8>>
-                end, <<Type:8>>, Players).
+                end, <<Type:8>>, Clients).
 
 generate_random_color() ->
     H = 59 + rand:uniform(241),

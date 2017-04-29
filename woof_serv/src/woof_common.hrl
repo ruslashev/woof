@@ -13,6 +13,7 @@
 -define(ERROR_TYPE_NOT_MATCHING_PROTOCOL, 0).
 
 -define(SERVER_UPDATE_SEND_DELAY_MS, 500).
+-define(CLIENT_TIMEOUT_MS, 5000).
 
 -record(packet,
         { reliable = undefined
@@ -35,11 +36,7 @@
         , sent_packets = 0
         , ack_packets = 0
         , received_packets = 0
-        }).
-
-% TODO: drop
--record(player,
-        { client_id
+        , time_since_last_ping = 0
         , position_x = 0
         , position_y = 0
         , alive = true
