@@ -13,8 +13,12 @@ static GLint resolution_unif, time_unif, modelmat_unif, color_unif;
 static shader *vs, *fs;
 static vertexarray *vao;
 
+static bool forward = false, backward = false, left = false, right = false
+    , click = false;
+static float view_angle = 0; // degrees
+
 void graphics_load(screen *s) {
-  // s->lock_mouse();
+  s->lock_mouse();
 
   glClearColor(0.06f, 0.06f, 0.06f, 1);
 
@@ -86,44 +90,61 @@ void load(screen *s) {
 }
 
 void key_event(char key, bool down) {
-  /*
-  event e;
-  e.type = EV_EMPTY;
-  e.moving_direction = 0;
   switch (key) {
     case 'w':
-      e.type = EV_FORWARD;
-      e.moving_direction = 1;
+      forward = down;
       break;
     case 's':
-      e.type = EV_FORWARD;
-      e.moving_direction = -1;
+      backward = down;
       break;
     case 'd':
-      e.type = EV_RIGHT;
-      e.moving_direction = 1;
+      right = down;
       break;
     case 'a':
-      e.type = EV_RIGHT;
-      e.moving_direction = -1;
+      left = down;
       break;
     default:
-      warning("invalid char");
+      break;
   }
-  */
-  printf("%s %c\n", down? "press" : "release", key);
 }
 
 void mousemotion_event(float xrel, float yrel, int, int) {
-  // const float sensitivity = 2.2, m_yaw = 0.022
-  //   , mouse_dx = xrel * sensitivity * m_yaw;
+  const float sensitivity = 2.2, m_yaw = 0.022
+    , mouse_dx = xrel * sensitivity * m_yaw;
+  view_angle += mouse_dx;
+  if (view_angle > 360.f)
+    view_angle -= 360.f;
+  if (view_angle < 0.f)
+    view_angle += 360.f;
 }
 
 void mousebutton_event_cb(int button, bool down) {
+  if (button == 1)
+    click = down;
 }
 
 void update(double dt, double t, screen *s) {
   c->update(dt, t);
+
+  int move, strafe;
+
+  if (forward == backward)
+    move = 0;
+  else if (forward)
+    move = 1;
+  else if (backward)
+    move = -1;
+
+  if (right == left)
+    strafe = 0;
+  else if (right)
+    strafe = 1;
+  else if (left)
+    strafe = -1;
+
+  if (c->is_connected()) {
+    movement_msg m(move, strafe, click, view_angle);
+  }
 
   static bool once = false;
   if (!once) {// (!c->is_connected()) {

@@ -110,6 +110,41 @@ void connection_req_msg::serialize(bytestream &b) {
   b.write_uint16_net(protocol_ver);
 }
 
+movement_msg::movement_msg(int move, int strafe, bool firing, float view_angle)
+  : message(message_type::MOVEMENT) {
+  int move_bits, strafe_bits, firing_bit = firing, view_angle_bits;
+  if (move == 1)
+    move_bits = 0b01;
+  else if (move == 0)
+    move_bits = 0b00;
+  else if (move == -1)
+    move_bits = 0b11;
+  else
+    warning_ln("invalid move: %d", move);
+
+  if (strafe == 1)
+    strafe_bits = 0b01;
+  else if (strafe == 0)
+    strafe_bits = 0b00;
+  else if (strafe == -1)
+    strafe_bits = 0b11;
+  else
+    warning_ln("invalid strafe: %d", strafe);
+
+  view_angle_bits = std::round((view_angle / 360.f) * 2047);
+
+  encoded_movement = 0
+    | ((move_bits & 0b11) << 14)
+    | ((strafe_bits & 0b11) << 12)
+    | ((firing_bit & 0b1) << 11)
+    | (view_angle_bits & 0b11111111111);
+}
+
+void movement_msg::serialize(bytestream &b) {
+  b.write_uint8((uint8_t)type);
+  b.write_uint16_net(encoded_movement);
+}
+
 ping_msg::ping_msg(uint32_t n_time_sent)
   : message(message_type::PING)
   , time_sent(n_time_sent) {

@@ -31,7 +31,8 @@ const uint16_t protocol_version = 1;
 enum class message_type : uint8_t {
   SPECIAL = 0,
   PING = 1,
-  CONNECTION_REQ = 2
+  CONNECTION_REQ = 2,
+  MOVEMENT = 3
 };
 
 enum class server_message_type : uint8_t {
@@ -67,6 +68,19 @@ struct message {
 struct connection_req_msg : message {
   uint16_t protocol_ver;
   connection_req_msg();
+  void serialize(bytestream &b) override;
+};
+
+struct movement_msg : message {
+  uint16_t encoded_movement;
+  /* [mmss fvvv vvvv vvvv]
+   * first 4 bits:
+   *  2 bits move [mm]: 0b01 = forward, 0b11 = backward, 0b00 = none
+   *  2 bits strafe [ss]: 0b01 = right, 0b11 = left, 0b00 = none
+   * 1 bit is firing [f]
+   * rest 11 bits view angle [vvvvvvvvvvv]
+   */
+  movement_msg(int move, int strafe, bool firing, float view_angle);
   void serialize(bytestream &b) override;
 };
 
@@ -119,6 +133,7 @@ public:
 
   // shouldn't be here, but implementing players' data passing other way is a lot
   // of unnecessary work (for not enough time)
+  // handling messages in general should be handled by callbacks
   std::vector<player> players;
 };
 
