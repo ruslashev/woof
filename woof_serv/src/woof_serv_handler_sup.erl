@@ -10,10 +10,10 @@ handle(RemoteIp, RemotePort, Packet) ->
     supervisor:start_child(?MODULE, [RemoteIp, RemotePort, Packet]).
 
 init([]) ->
-    { ok, { { simple_one_for_one, 5, 10 },
+    { ok, { { simple_one_for_one, 1, 1 },
             [{ woof_serv_handler,
                { woof_serv_handler, handle, [] },
-               permanent, 5 * 1000, worker, [woof_serv_handler] }]
+               temporary, 1 * 1000, worker, [woof_serv_handler] }]
           }
     }.
 

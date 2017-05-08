@@ -2,7 +2,7 @@
 -module(woof_utils).
 -export([serialize/1, append_msg_queue_to_packet/2, send/2, send_rel/2,
          connection_reply_msg/0, pong_msg/1, update_msg/1,
-         generate_random_color/0]).
+         generate_random_color/0, move_player/4]).
 -include("woof_common.hrl").
 
 serialize(#packet{
@@ -39,8 +39,8 @@ append_msg_queue_to_packet(MsgQueue, Packet = #packet{
             end
     end.
 
-send(ClientKey, Message) ->
-    case ets:lookup(clients, ClientKey) of
+send(ClientId, Message) ->
+    case ets:lookup(clients, ClientId) of
         [] -> throw(badarg);
         [ClientData = #client_data{
                 unrel_messages = ClUnrelMessages }] ->
@@ -49,8 +49,8 @@ send(ClientKey, Message) ->
                     unrel_messages = ClUnrelMessages2 })
     end.
 
-send_rel(ClientKey, Message) ->
-    case ets:lookup(clients, ClientKey) of
+send_rel(ClientId, Message) ->
+    case ets:lookup(clients, ClientId) of
         [] -> throw(badarg);
         [ClientData = #client_data{ messages = ClMessages }] ->
             ClMessages2 = queue:in(Message, ClMessages),
@@ -70,6 +70,7 @@ update_msg(Clients) ->
     Type = ?SERVER_MESSAGE_TYPE_UPDATE,
     NumClients = length(Clients),
     lists:foldl(fun(#client_data{
+                        client_id = ClientId,
                         position_x = PositionX,
                         position_y = PositionY,
                         alive = Alive,
@@ -78,7 +79,11 @@ update_msg(Clients) ->
                                    true -> 1;
                                    false -> 0
                                end,
-                    <<Acc/binary, PositionX:16, PositionY:16, AliveInt:8,
+                    <<Acc/binary,
+                      ClientId:16,
+                      PositionX:16,
+                      PositionY:16,
+                      AliveInt:8,
                       ColorR:8, ColorG:8, ColorB:8>>
                 end, <<Type:8, NumClients:8>>, Clients).
 
@@ -107,4 +112,27 @@ hsv_to_rgb(Hb, Sb, Vb) ->
             5 -> { V, P, Q }
         end,
     { round(Rf), round(Gf), round(Bf) }.
+
+move_player(ClientId, Move, Strafe, _ViewAngle) ->
+    case ets:lookup(clients, ClientId) of
+        [] -> throw(badarg);
+        [ClientData = #client_data{
+                         position_x = PositionX,
+                         position_y = PositionY }] ->
+            Delta = if Move =:= Strafe -> math:sqrt(2) * ?POSITION_DELTA;
+                       Move =/= Strafe -> ?POSITION_DELTA end,
+            NewPositionX = case Strafe of
+                               2#00 -> PositionX;
+                               2#01 -> PositionX + Delta;
+                               2#11 -> PositionX - Delta
+                           end,
+            NewPositionY = case Move of
+                               2#00 -> PositionY;
+                               2#01 -> PositionY + Delta;
+                               2#11 -> PositionY - Delta
+                           end,
+            ets:insert(clients, ClientData#client_data{
+                                  position_x = NewPositionX,
+                                  position_y = NewPositionY })
+    end.
 

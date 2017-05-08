@@ -78,6 +78,11 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
                 _ -> io:format("woof_serv_handler: wrong protocol version ~p~n",
                              [ProtocolVer])
             end;
+        ?MESSAGE_TYPE_MOVEMENT ->
+            <<Move:2, Strafe:2, _Firing:1, ViewAngle:11, NewMessages/binary>> = Rest,
+            % TODO move to main_loop and restrict to time
+            woof_utils:move_player(ClientId, Move, Strafe, ViewAngle),
+            parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
         _ ->
             io:format("woof_serv_handler: unhandled message type ~p~n", [Type])
     end.

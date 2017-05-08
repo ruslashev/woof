@@ -248,6 +248,7 @@ void connection::_parse_messages(packet &p) {
         messages.read_uint8(num_clients);
         for (int i = 1; i <= num_clients; ++i) {
           player ply;
+          messages.read_uint16_net(ply.client_id);
           messages.read_uint16_net(ply.position_x);
           messages.read_uint16_net(ply.position_y);
           messages.read_uint8(ply.alive);

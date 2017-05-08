@@ -3,6 +3,7 @@
 -define(MESSAGE_TYPE_SPECIAL, 0).
 -define(MESSAGE_TYPE_PING, 1).
 -define(MESSAGE_TYPE_CONNECTION_REQ, 2).
+-define(MESSAGE_TYPE_MOVEMENT, 3).
 
 -define(SERVER_MESSAGE_TYPE_SPECIAL, 0).
 -define(SERVER_MESSAGE_TYPE_ERROR, 1).
@@ -14,6 +15,8 @@
 
 -define(SERVER_UPDATE_SEND_DELAY_MS, 500).
 -define(CLIENT_TIMEOUT_MS, 5000).
+
+-define(POSITION_DELTA, 3).
 
 -record(packet,
         { reliable = undefined

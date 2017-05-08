@@ -144,6 +144,9 @@ void update(double dt, double t, screen *s) {
 
   if (c->is_connected()) {
     movement_msg m(move, strafe, click, view_angle);
+    bytestream b;
+    m.serialize(b);
+    c->send(b);
   }
 
   static bool once = false;

@@ -4,7 +4,7 @@
    { registered, [woof_serv_sup, woof_serv_handler_sup, woof_serv_handler,
                   woof_serv_listener] },
    { mod, { woof_serv_app, [] } },
-   { applications, [kernel, stdlib] },
+   { applications, [kernel, stdlib, sasl] },
    { env, [{ port_serv,   2711 },
            { port_client, 2710 }]},
    { modules, [] }

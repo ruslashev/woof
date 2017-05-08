@@ -91,7 +91,7 @@ struct ping_msg : message {
 };
 
 struct player {
-  uint16_t position_x, position_y;
+  uint16_t client_id, position_x, position_y;
   uint8_t alive, color_r, color_g, color_b;
 };
 
