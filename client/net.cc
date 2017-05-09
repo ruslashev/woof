@@ -298,7 +298,7 @@ void connection::update(double dt, double t) {
       warning("connection stalling");
       _connection_stalling_warned = true;
     } else if (_time_since_last_pong > 5)
-      {} // die("connection timeout");
+      normal_exit("connection timeout");
     _ping_time_counter_ms += dt * 1000.;
     if (_ping_time_counter_ms >= _ping_send_delay_ms) {
       _ping_time_counter_ms -= _ping_send_delay_ms;

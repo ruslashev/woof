@@ -25,6 +25,8 @@
 
 #define die(...) do { printf(__VA_ARGS__); puts(""); exit(1); } while (0)
 
+#define normal_exit(...) do { printf(__VA_ARGS__); puts(""); exit(0); } while (0)
+
 #define warning(...) do { \
   printf("warning: "); \
   printf(__VA_ARGS__); \

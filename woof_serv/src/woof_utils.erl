@@ -80,13 +80,11 @@ update_msg(Clients) ->
                                    true -> 1;
                                    false -> 0
                                end,
-                    <<Acc/binary,
-                      ClientId:16,
-                      PositionX:16,
-                      PositionY:16,
-                      ViewAngle:16,
-                      AliveInt:8,
-                      ColorR:8, ColorG:8, ColorB:8>>
+                    RoundedPositionX = erlang:round(PositionX),
+                    RoundedPositionY = erlang:round(PositionY),
+                    <<Acc/binary, ClientId:16, RoundedPositionX:16,
+                      RoundedPositionY:16, ViewAngle:16, AliveInt:8, ColorR:8,
+                      ColorG:8, ColorB:8>>
                 end, <<Type:8, NumClients:8>>, Clients).
 
 generate_random_color() ->
@@ -121,9 +119,12 @@ move_player(ClientId, Move, Strafe, ViewAngle) ->
         [ClientData = #client_data{
                          position_x = PositionX,
                          position_y = PositionY }] ->
-            _DeserializedViewAngle = (ViewAngle / 2047) * (360 - 360 / 2048),
-            Delta = if Move =:= Strafe -> math:sqrt(2) * ?POSITION_DELTA;
-                       Move =/= Strafe -> ?POSITION_DELTA end,
+            DeserializedViewAngle = (ViewAngle / 2047) * (360 - 360 / 2048),
+            Delta = if (Move =/= 2#00) and (Strafe =/= 2#00) ->
+                           math:sqrt(2) * ?POSITION_DELTA;
+                       true ->
+                           ?POSITION_DELTA
+                    end,
             NewPositionX = case Strafe of
                                2#00 -> PositionX;
                                2#01 -> PositionX + Delta;
