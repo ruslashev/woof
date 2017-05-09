@@ -8,10 +8,11 @@
 
 static shaderprogram *sp;
 static GLint vattr;
-static array_buffer *cube_vbuf;
+static array_buffer *model_vbuf;
 static GLint resolution_unif, time_unif, modelmat_unif, color_unif;
 static shader *vs, *fs;
 static vertexarray *vao;
+static glm::vec2 model_rotation_pivot = glm::vec2(0.309016, 0.5);
 
 static bool forward = false, backward = false, left = false, right = false
     , click = false;
@@ -48,25 +49,29 @@ void graphics_load(screen *s) {
   modelmat_unif = sp->bind_uniform("model");
   color_unif = sp->bind_uniform("color");
 
-  const std::vector<float> cube_verts = {
-    0, 1,
-    1, 0,
-    0, 0,
+  const std::vector<float> model_verts = {
+    0,     1,
+    0,     0,
+    0.618, 0,
 
-    0, 1,
-    1, 1,
-    1, 0
+    0,     1,
+    0.618, 0,
+    0.618, 1,
+
+    0.618, 1,
+    0.618, 0,
+    1,     0.5
   };
   vao = new vertexarray;
-  cube_vbuf = new array_buffer;
+  model_vbuf = new array_buffer;
   vao->bind();
-  cube_vbuf->bind();
-  cube_vbuf->upload(cube_verts);
+  model_vbuf->bind();
+  model_vbuf->upload(model_verts);
   glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, 0);
   glEnableVertexAttribArray(vattr);
   vao->unbind();
   glDisableVertexAttribArray(vattr);
-  cube_vbuf->unbind();
+  model_vbuf->unbind();
 
   time_unif = sp->bind_uniform("iGlobalTime");
 
@@ -160,20 +165,19 @@ void update(double dt, double t, screen *s) {
   sp->dont_use_this_prog();
 }
 
-void draw_square(glm::vec2 pos, glm::vec2 size, float rotation
-    , glm::vec3 color) {
+void draw_model(glm::vec2 pos, glm::vec2 rotation_pivot, glm::vec2 size
+    , float rotation, glm::vec3 color) {
   glm::mat4 model;
   model = glm::translate(model, glm::vec3(pos, 0.f));
-  model = glm::translate(model, glm::vec3(0.5f * size.x, 0.5f * size.y, 0.f));
   model = glm::rotate(model, rotation, glm::vec3(0.f, 0.f, 1.f));
-  model = glm::translate(model, glm::vec3(-0.5f * size.x, -0.5f * size.y, 0.f));
-  model = glm::scale(model, glm::vec3(size, 1.0f));
+  model = glm::scale(model, glm::vec3(size, 1.f));
+  model = glm::translate(model, glm::vec3(-rotation_pivot, 0.f));
 
   sp->use_this_prog();
   glUniformMatrix4fv(modelmat_unif, 1, GL_FALSE, glm::value_ptr(model));
   glUniform3f(color_unif, color.x, color.y, color.z);
   vao->bind();
-  glDrawArrays(GL_TRIANGLES, 0, 6);
+  glDrawArrays(GL_TRIANGLES, 0, 9);
   vao->unbind();
   sp->dont_use_this_prog();
 }
@@ -187,7 +191,7 @@ void draw(double alpha) {
         , p.color_b / 255.f);
     float deserialized_view_angle = (p.view_angle / 2047.f) * (360.f - 360.f
         / 2048.f);
-    draw_square(glm::vec2(p.position_x, p.position_y)
+    draw_model(glm::vec2(p.position_x, p.position_y), model_rotation_pivot
         , glm::vec2(10, 10), deserialized_view_angle, color);
   }
 }
@@ -196,7 +200,7 @@ void cleanup() {
   delete vs;
   delete fs;
   delete sp;
-  delete cube_vbuf;
+  delete model_vbuf;
   delete vao;
   delete c;
 }
