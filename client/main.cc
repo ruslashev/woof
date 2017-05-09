@@ -207,8 +207,7 @@ void cleanup() {
 
 int main() {
   try {
-    // screen s("woof", 800, 450);
-    screen s("woof", 200, 150);
+    screen s("woof", 360, 270);
 
     s.mainloop(load, key_event, mousemotion_event, mousebutton_event_cb, update
         , draw, cleanup);

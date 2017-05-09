@@ -16,7 +16,7 @@
 -define(SERVER_UPDATE_SEND_DELAY_MS, 20).
 -define(CLIENT_TIMEOUT_MS, 5000).
 
--define(POSITION_DELTA, 3).
+-define(POSITION_DELTA, 2).
 
 -record(packet,
         { reliable = undefined
