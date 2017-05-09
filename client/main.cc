@@ -112,7 +112,7 @@ void mousemotion_event(float xrel, float yrel, int, int) {
   const float sensitivity = 2.2, m_yaw = 0.022
     , mouse_dx = xrel * sensitivity * m_yaw;
   view_angle += mouse_dx;
-  if (view_angle > 360.f)
+  if (view_angle >= 360.f)
     view_angle -= 360.f;
   if (view_angle < 0.f)
     view_angle += 360.f;
@@ -185,8 +185,10 @@ void draw(double alpha) {
     player p = c->players[i];
     glm::vec3 color = glm::vec3(p.color_r / 255.f, p.color_g / 255.f
         , p.color_b / 255.f);
+    float deserialized_view_angle = (p.view_angle / 2047.f) * (360.f - 360.f
+        / 2048.f);
     draw_square(glm::vec2(p.position_x, p.position_y)
-        , glm::vec2(10, 10), 0, color);
+        , glm::vec2(10, 10), deserialized_view_angle, color);
   }
 }
 

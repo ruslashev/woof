@@ -131,7 +131,7 @@ movement_msg::movement_msg(int move, int strafe, bool firing, float view_angle)
   else
     warning_ln("invalid strafe: %d", strafe);
 
-  view_angle_bits = std::round((view_angle / 360.f) * 2047);
+  view_angle_bits = std::round((view_angle / 360.f) * 2047); // [0, 2047]
 
   encoded_movement = 0
     | ((move_bits & 0b11) << 14)
@@ -251,6 +251,7 @@ void connection::_parse_messages(packet &p) {
           messages.read_uint16_net(ply.client_id);
           messages.read_uint16_net(ply.position_x);
           messages.read_uint16_net(ply.position_y);
+          messages.read_uint16_net(ply.view_angle);
           messages.read_uint8(ply.alive);
           messages.read_uint8(ply.color_r);
           messages.read_uint8(ply.color_g);

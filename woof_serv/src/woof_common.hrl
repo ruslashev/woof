@@ -42,6 +42,7 @@
         , time_since_last_ping = 0
         , position_x = rand:uniform(100)
         , position_y = rand:uniform(100)
+        , view_angle = 0
         , alive = true
         , color = woof_utils:generate_random_color()
         }).

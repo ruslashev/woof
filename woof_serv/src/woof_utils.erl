@@ -73,6 +73,7 @@ update_msg(Clients) ->
                         client_id = ClientId,
                         position_x = PositionX,
                         position_y = PositionY,
+                        view_angle = ViewAngle,
                         alive = Alive,
                         color = { ColorR, ColorG, ColorB } }, Acc) ->
                     AliveInt = case Alive of
@@ -83,6 +84,7 @@ update_msg(Clients) ->
                       ClientId:16,
                       PositionX:16,
                       PositionY:16,
+                      ViewAngle:16,
                       AliveInt:8,
                       ColorR:8, ColorG:8, ColorB:8>>
                 end, <<Type:8, NumClients:8>>, Clients).
@@ -113,12 +115,13 @@ hsv_to_rgb(Hb, Sb, Vb) ->
         end,
     { round(Rf), round(Gf), round(Bf) }.
 
-move_player(ClientId, Move, Strafe, _ViewAngle) ->
+move_player(ClientId, Move, Strafe, ViewAngle) ->
     case ets:lookup(clients, ClientId) of
         [] -> throw(badarg);
         [ClientData = #client_data{
                          position_x = PositionX,
                          position_y = PositionY }] ->
+            _DeserializedViewAngle = (ViewAngle / 2047) * (360 - 360 / 2048),
             Delta = if Move =:= Strafe -> math:sqrt(2) * ?POSITION_DELTA;
                        Move =/= Strafe -> ?POSITION_DELTA end,
             NewPositionX = case Strafe of
@@ -133,6 +136,7 @@ move_player(ClientId, Move, Strafe, _ViewAngle) ->
                            end,
             ets:insert(clients, ClientData#client_data{
                                   position_x = NewPositionX,
-                                  position_y = NewPositionY })
+                                  position_y = NewPositionY,
+                                  view_angle = ViewAngle })
     end.
 
