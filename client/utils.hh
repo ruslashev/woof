@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <cmath>
+#include <cstdarg>
 
 #ifdef __PRETTY_FUNCTION__
 #define info() \
@@ -61,5 +62,20 @@ inline void print_packet(uint8_t *packet, size_t len
     printf(" ");
   }
   printf("\n");
+}
+
+inline void dputs(std::string s) {
+  extern bool debug;
+  if (debug)
+    puts(s.c_str());
+}
+
+inline void dprintf(const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  extern bool debug;
+  if (debug)
+    vprintf(format, args);
+  va_end(args);
 }
 

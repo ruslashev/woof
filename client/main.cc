@@ -6,6 +6,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
 
+bool debug = false;
 static shaderprogram *sp;
 static GLint vattr;
 static array_buffer *model_vbuf;
@@ -21,6 +22,7 @@ static float view_angle = 0; // degrees
 void graphics_load(screen *s) {
   s->lock_mouse();
 
+  glEnable(GL_MULTISAMPLE);
   glClearColor(0.06f, 0.06f, 0.06f, 1);
 
   const char *vsrc = _glsl(

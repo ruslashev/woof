@@ -10,6 +10,8 @@ screen::screen(const std::string &n_title, int n_window_width, int n_window_heig
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
+  SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 16);
+
   _window = SDL_CreateWindow(_title.c_str(), SDL_WINDOWPOS_CENTERED
       , SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
 

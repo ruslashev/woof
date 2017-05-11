@@ -7,7 +7,7 @@ try
   : _io()
   , _io_work(_io)
   , _io_thread([&] {
-      puts("net thread start");
+      dputs("net thread start");
       // while (!_io.stopped()) {
         try {
           _io.run();
@@ -21,7 +21,7 @@ try
   , _socket(_io, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))
   , _receive_cb(n_receive_cb)
   , _userdata(n_userdata) {
-  puts("net init");
+  dputs("net init");
   start_receive();
 } catch (const std::exception &e) {
   die("net init fail: %s", e.what());
@@ -60,7 +60,7 @@ void net::send(uint8_t *message, size_t len) {
   _socket.async_send_to(asio::buffer(message, len), _remote_endpoint
       , [this](const asio::error_code &e, size_t bytes_tx) {
         if (e)
-          printf("net::send error: %s\n", e.message().c_str());
+          warning_ln("send error: %s", e.message().c_str());
       });
 }
 
@@ -88,11 +88,8 @@ void packet::deserialize(bytestream &b, bool &success) {
 }
 
 void packet::print() {
-  printf("reliable=%d\n", reliable);
-  printf("sequence=%d\n", sequence);
-  printf("ack=%d\n", ack);
-  printf("client_id=%d\n", client_id);
-  printf("num_messages=%d: ", num_messages);
+  dprintf("reliable=%d, sequence=%d, ack=%d, client_id=%d, num_messages=%d\n"
+      , reliable, sequence, ack, client_id, num_messages);
   serialized_messages.print();
 }
 
@@ -166,7 +163,7 @@ void connection::_pong(uint32_t time_sent) {
   _time_since_last_pong = 0;
   _connection_stalling_warned = false;
   double rtt = _s->get_time_in_seconds() * 1000. - (double)time_sent;
-  printf("ping rtt %.1f\n", rtt);
+  dprintf("ping rtt %.1f\n", rtt);
 }
 
 void connection::_send_packets() {
@@ -181,7 +178,7 @@ void connection::_send_packets() {
           _unrel_messages.pop();
         }
       _unacked_packet.serialize(serialized_packet);
-      printf("existing packet; ");
+      dprintf("existing packet; ");
     } else if (!_messages.empty()) {
       packet new_packet;
       new_packet.reliable = 1;
@@ -203,7 +200,7 @@ void connection::_send_packets() {
           _unrel_messages.pop();
         }
       new_packet.serialize(serialized_packet);
-      printf("new packet; ");
+      dprintf("new packet; ");
     } else if (!_unrel_messages.empty()) {
       packet new_packet;
       new_packet.reliable = 0;
@@ -217,7 +214,7 @@ void connection::_send_packets() {
         _unrel_messages.pop();
       }
       new_packet.serialize(serialized_packet);
-      printf("new packet with unrel msgs only; ");
+      dprintf("new packet with unrel msgs only; ");
     }
 
     _n.send(serialized_packet.data(), serialized_packet.size());
@@ -326,7 +323,7 @@ void connection::receive(void *userdata, uint8_t *buffer, size_t bytes_rx) {
   assertf(userdata != nullptr, "things that shouldn't happen for 300");
   connection *c = (connection*)userdata;
   // print_packet(buffer, bytes_rx, "receive");
-  puts("received packet");
+  dputs("received packet");
   bytestream packet_bs(buffer, bytes_rx);
   packet p;
   bool success;
@@ -369,7 +366,7 @@ void connection::connect() {
 }
 
 void connection::print_stats() {
-  printf("stats: sent=%lu, ack=%lu, received=%lu\n", _sent_packets, _ack_packets
+  dprintf("stats: sent=%lu, ack=%lu, received=%lu\n", _sent_packets, _ack_packets
       , _received_packets);
 }
 

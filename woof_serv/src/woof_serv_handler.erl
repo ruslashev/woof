@@ -67,7 +67,7 @@ parse_messages(RemoteIp, ClientId, NumMessages, Messages) ->
             ets:update_element(clients, ClientId, { 13, 0 }), % time_since_last_ping
             parse_messages(RemoteIp, ClientId, NumMessages - 1, NewMessages);
         ?MESSAGE_TYPE_CONNECTION_REQ ->
-            % TODO: assert client_id is unique
+            % TODO: assert that client_id is unique
             <<ProtocolVer:16, NewMessages/binary>> = Rest,
             case ProtocolVer of
                 ?PROTOCOL_VERSION ->

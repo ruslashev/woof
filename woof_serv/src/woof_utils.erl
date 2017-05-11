@@ -125,7 +125,6 @@ move_player(ClientId, Move, Strafe, ViewAngle) ->
                        true ->
                            ?POSITION_DELTA
                     end,
-            io:format("Delta=~p~n", [Delta]),
             SpeedMove = case Move of
                             2#00 -> 0;
                             2#01 -> Delta;
@@ -136,8 +135,12 @@ move_player(ClientId, Move, Strafe, ViewAngle) ->
                               2#01 -> Delta;
                               2#11 -> -Delta
                           end,
-            NewPositionX = PositionX + math:cos(DeserializedViewAngle) * SpeedMove + math:cos(DeserializedViewAngle + math:pi() / 2) * SpeedStrafe,
-            NewPositionY = PositionY + math:sin(DeserializedViewAngle) * SpeedMove + math:sin(DeserializedViewAngle + math:pi() / 2) * SpeedStrafe,
+            NewPositionX = PositionX +
+                    math:cos(DeserializedViewAngle) * SpeedMove +
+                    math:cos(DeserializedViewAngle + math:pi() / 2) * SpeedStrafe,
+            NewPositionY = PositionY +
+                    math:sin(DeserializedViewAngle) * SpeedMove +
+                    math:sin(DeserializedViewAngle + math:pi() / 2) * SpeedStrafe,
             ets:insert(clients, ClientData#client_data{
                                   position_x = NewPositionX,
                                   position_y = NewPositionY,
