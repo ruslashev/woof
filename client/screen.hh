@@ -16,7 +16,8 @@ class screen {
 public:
   int window_width, window_height;
   bool running;
-  screen(const std::string &n_title, int n_window_width, int n_window_height);
+  screen(const std::string &n_title, int n_window_width, int n_window_height
+      , int multisample_samples);
   ~screen();
   void mainloop(void (*load_cb)(screen*)
       , void (*key_event_cb)(char, bool)

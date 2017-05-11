@@ -3,6 +3,7 @@
 #include <fstream>
 #include <cmath>
 #include <cstdarg>
+#include <string>
 
 #ifdef __PRETTY_FUNCTION__
 #define info() \
@@ -77,5 +78,13 @@ inline void dprintf(const char *format, ...) {
   if (debug)
     vprintf(format, args);
   va_end(args);
+}
+
+inline std::string trim(std::string str) {
+  std::string::size_type first = str.find_first_not_of(' ')
+    , last = str.find_last_not_of(' ');
+  if (first == std::string::npos)
+    return "";
+  return str.substr(first, (last - first + 1));
 }
 

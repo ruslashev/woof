@@ -4,7 +4,6 @@
 #include "utils.hh"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <string>
 
 bool debug = false;
 static shaderprogram *sp;
@@ -13,13 +12,15 @@ static array_buffer *model_vbuf;
 static GLint resolution_unif, time_unif, modelmat_unif, color_unif;
 static shader *vs, *fs;
 static vertexarray *vao;
-static glm::vec2 model_rotation_pivot = glm::vec2(0.309016, 0.5);
-
+static const glm::vec2 model_rotation_pivot = glm::vec2(0.309016, 0.5);
 static bool forward = false, backward = false, left = false, right = false
     , click = false;
 static float view_angle = 0; // degrees
+static int multisample_samples = 16;
+static float sensitivity = 2.2;
+static std::string remote_ip = "127.0.0.1";
 
-void graphics_load(screen *s) {
+static void graphics_load(screen *s) {
   s->lock_mouse();
 
   glEnable(GL_MULTISAMPLE);
@@ -89,14 +90,14 @@ void graphics_load(screen *s) {
 
 static connection *c;
 
-void load(screen *s) {
+static void load(screen *s) {
   graphics_load(s);
 
   c = new connection(port_client, s);
-  c->set_endpoint("127.0.0.1", port_serv);
+  c->set_endpoint(remote_ip, port_serv);
 }
 
-void key_event(char key, bool down) {
+static void key_event(char key, bool down) {
   switch (key) {
     case 'w':
       forward = down;
@@ -115,9 +116,8 @@ void key_event(char key, bool down) {
   }
 }
 
-void mousemotion_event(float xrel, float yrel, int, int) {
-  const float sensitivity = 2.2, m_yaw = 0.022
-    , mouse_dx = xrel * sensitivity * m_yaw;
+static void mousemotion_event(float xrel, float yrel, int, int) {
+  const float m_yaw = 0.022, mouse_dx = xrel * sensitivity * m_yaw;
   view_angle += mouse_dx;
   if (view_angle >= 360.f)
     view_angle -= 360.f;
@@ -125,12 +125,12 @@ void mousemotion_event(float xrel, float yrel, int, int) {
     view_angle += 360.f;
 }
 
-void mousebutton_event_cb(int button, bool down) {
+static void mousebutton_event_cb(int button, bool down) {
   if (button == 1)
     click = down;
 }
 
-void update(double dt, double t, screen *s) {
+static void update(double dt, double t, screen *s) {
   c->update(dt, t);
 
   int move, strafe;
@@ -167,7 +167,7 @@ void update(double dt, double t, screen *s) {
   sp->dont_use_this_prog();
 }
 
-void draw_model(glm::vec2 pos, glm::vec2 rotation_pivot, glm::vec2 size
+static void draw_model(glm::vec2 pos, glm::vec2 rotation_pivot, glm::vec2 size
     , float rotation, glm::vec3 color) {
   glm::mat4 model;
   model = glm::translate(model, glm::vec3(pos, 0.f));
@@ -184,7 +184,7 @@ void draw_model(glm::vec2 pos, glm::vec2 rotation_pivot, glm::vec2 size
   sp->dont_use_this_prog();
 }
 
-void draw(double alpha) {
+static void draw(double alpha) {
   glClear(GL_COLOR_BUFFER_BIT);
 
   for (size_t i = 0; i < c->players.size(); ++i) {
@@ -198,7 +198,7 @@ void draw(double alpha) {
   }
 }
 
-void cleanup() {
+static void cleanup() {
   delete vs;
   delete fs;
   delete sp;
@@ -207,9 +207,32 @@ void cleanup() {
   delete c;
 }
 
+static void parse_config() {
+  std::ifstream input("config.txt");
+  if (!input)
+    return;
+  for (std::string line; getline(input, line); ) {
+    std::string::size_type eq_idx = line.find("=");
+    if (eq_idx == std::string::npos) {
+      warning("malformed line in config: \"%s\"", line.c_str());
+      continue;
+    }
+    std::string identifier = trim(line.substr(0, eq_idx))
+      , value = trim(line.substr(eq_idx + 1));
+    if (identifier == "remote_ip")
+      remote_ip = value;
+    else if (identifier == "multisample_samples")
+      multisample_samples = std::stoi(value);
+    else if (identifier == "sensitivity")
+      sensitivity = std::stof(value);
+  }
+}
+
 int main() {
   try {
-    screen s("woof", 360, 270);
+    parse_config();
+
+    screen s("woof", 360, 270, multisample_samples);
 
     s.mainloop(load, key_event, mousemotion_event, mousebutton_event_cb, update
         , draw, cleanup);
