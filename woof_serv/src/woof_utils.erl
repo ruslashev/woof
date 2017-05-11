@@ -119,7 +119,8 @@ move_player(ClientId, Move, Strafe, ViewAngle) ->
         [ClientData = #client_data{
                          position_x = PositionX,
                          position_y = PositionY }] ->
-            DeserializedViewAngle = (ViewAngle / 2047) * (360 - 360 / 2048),
+            DeserializedViewAngleDeg = (ViewAngle / 2047) * (360 - 360 / 2048),
+            DeserializedViewAngle = DeserializedViewAngleDeg * math:pi() / 180,
             Delta = if (Move =/= 2#00) and (Strafe =/= 2#00) ->
                            ?POSITION_DELTA / math:sqrt(2);
                        true ->

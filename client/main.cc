@@ -171,7 +171,7 @@ void draw_model(glm::vec2 pos, glm::vec2 rotation_pivot, glm::vec2 size
     , float rotation, glm::vec3 color) {
   glm::mat4 model;
   model = glm::translate(model, glm::vec3(pos, 0.f));
-  model = glm::rotate(model, rotation, glm::vec3(0.f, 0.f, 1.f));
+  model = glm::rotate(model, to_radians(rotation), glm::vec3(0.f, 0.f, 1.f));
   model = glm::scale(model, glm::vec3(size, 1.f));
   model = glm::translate(model, glm::vec3(-rotation_pivot, 0.f));
 
