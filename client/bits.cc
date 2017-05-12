@@ -1,5 +1,5 @@
 #include "bits.hh"
-#include "utils.hh" // assertf
+#include "utils.hh"
 #include <asio.hpp> // hton*
 
 uint8_t* bytestream::data() {
