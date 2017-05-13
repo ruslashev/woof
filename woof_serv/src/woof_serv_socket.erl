@@ -6,8 +6,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 
--define(ACTIVE, { active, true }).
--define(SOCK_OPTS, [binary, ?ACTIVE]).
+-define(SOCK_OPTS, [binary, { active, true }]).
 
 start_link() ->
     gen_server:start_link({ local, woof_serv_socket }, ?MODULE, [], []).
@@ -17,7 +16,7 @@ send_binary(RemoteIp, RemotePort, Data) ->
 
 init([]) ->
     { ok, PortServer } = application:get_env(port_serv),
-    case gen_udp:open(PortServer, [binary, ?ACTIVE]) of
+    case gen_udp:open(PortServer, ?SOCK_OPTS) of
         { ok, Socket } ->
             { ok, Socket };
         { error, Reason } ->
@@ -37,7 +36,10 @@ handle_call(Unknown, _From, State) ->
     { noreply, State }.
 
 handle_cast({ send, RemoteIp, RemotePort, Data }, Socket) ->
-    gen_udp:send(Socket, RemoteIp, RemotePort, Data),
+    case gen_udp:send(Socket, RemoteIp, RemotePort, Data) of
+        ok -> ok;
+        { error, Reason } -> erlang:error(Reason)
+    end,
     { noreply, Socket };
 handle_cast(Unknown, State) ->
     io:format("woof_serv_socket: unknown cast: ~p~n", [Unknown]),
