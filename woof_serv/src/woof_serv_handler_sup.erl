@@ -4,10 +4,10 @@
 -export([init/1]).
 
 start_link() ->
-    supervisor:start_link({ global, woof_serv_handler_sup }, ?MODULE, []).
+    supervisor:start_link({ global, ?MODULE }, ?MODULE, []).
 
 handle(RemoteIp, RemotePort, Packet) ->
-    supervisor:start_child(?MODULE, [RemoteIp, RemotePort, Packet]).
+    supervisor:start_child({ global, ?MODULE }, [RemoteIp, RemotePort, Packet]).
 
 init([]) ->
     { ok, { { simple_one_for_one, 1, 1 },

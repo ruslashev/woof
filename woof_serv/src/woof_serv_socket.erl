@@ -9,10 +9,10 @@
 -define(SOCK_OPTS, [binary, { active, true }]).
 
 start_link() ->
-    gen_server:start_link({ global, woof_serv_socket }, ?MODULE, [], []).
+    gen_server:start_link({ global, ?MODULE }, ?MODULE, [], []).
 
 send_binary(RemoteIp, RemotePort, Data) ->
-    gen_server:cast(?MODULE, { send, RemoteIp, RemotePort, Data }).
+    gen_server:cast({ global, ?MODULE }, { send, RemoteIp, RemotePort, Data }).
 
 init([]) ->
     { ok, PortServer } = application:get_env(port_serv),

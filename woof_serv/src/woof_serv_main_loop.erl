@@ -6,7 +6,7 @@
 -include("woof_common.hrl").
 
 start_link() ->
-    gen_server:start_link({ global, woof_serv_main_loop }, ?MODULE, [], []).
+    gen_server:start_link({ global, ?MODULE }, ?MODULE, [], []).
 
 init([]) ->
     ets:new(clients, [set, { keypos, 2 }, public, named_table]),

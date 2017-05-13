@@ -7,7 +7,8 @@
    { applications, [kernel, stdlib, sasl] },
    { env, [{ port_serv,   2711 },
            { port_client, 2710 }]},
-   { modules, [] }
+   { modules, [woof_serv_app, woof_serv_handler, woof_serv_handler_sup,
+               woof_serv_main_loop, woof_serv_socket, woof_serv_sup, woof_utils ] }
   ]
 }.
 
